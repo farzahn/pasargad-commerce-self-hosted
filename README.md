@@ -1,55 +1,79 @@
 # Pasargad Prints
 
-A modern e-commerce platform for 3D printed home decor products. Built with Next.js 16, Firebase, and Tailwind CSS.
+A modern, self-hosted e-commerce platform for 3D printed home decor products. Built with Next.js 15, PocketBase, and Docker.
 
-![Next.js](https://img.shields.io/badge/Next.js-16.1.1-black)
+![Next.js](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)
-![Firebase](https://img.shields.io/badge/Firebase-11.1-orange)
+![PocketBase](https://img.shields.io/badge/PocketBase-0.21-7c3aed)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ed)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8)
 
 ## Overview
 
-Pasargad Prints is a single-seller e-commerce platform designed for selling custom 3D printed products. It features a clean, minimal design with full admin dashboard, order management, and invoice generation capabilities.
+Pasargad Prints is a **100% self-hosted** single-seller e-commerce platform designed for selling custom 3D printed products. No external services required - everything runs on your local machine with Docker.
 
 ### Key Features
 
 - **Product Catalog** - Variants for size, color, and material with dynamic pricing
 - **Shopping Cart** - Persistent cart with Zustand (localStorage for guests)
-- **User Accounts** - Google OAuth authentication via Firebase
+- **User Accounts** - Google OAuth authentication via PocketBase
 - **Order Management** - Full order lifecycle from placement to delivery
 - **Admin Dashboard** - Product, order, customer, and discount management
 - **Invoice Generation** - PDF invoices with jsPDF
-- **Email Notifications** - Transactional emails via Resend
+- **Email Notifications** - Transactional emails via Nodemailer + SMTP
+- **Analytics** - Privacy-focused tracking with Umami
 - **Dark Mode** - System-aware theme with manual toggle
 - **Password Protection** - Optional site-wide password gate
 
-## Tech Stack
+## Self-Hosted Architecture
 
-| Layer | Technology |
-|-------|------------|
-| Framework | Next.js 16.1.1 (App Router) |
-| Language | TypeScript 5.7 |
-| Styling | Tailwind CSS + shadcn/ui |
-| State | Zustand |
-| Database | Firebase Firestore |
-| Auth | Firebase Authentication (Google OAuth) |
-| Storage | Firebase Storage |
-| Email | Resend |
-| PDF | jsPDF + jspdf-autotable |
-| Rate Limiting | Upstash Redis |
-| CAPTCHA | Cloudflare Turnstile |
-| Analytics | Google Analytics 4 |
+```
+                    Internet (Optional)
+                           │
+                  ┌────────▼────────┐
+                  │ Cloudflare Tunnel│
+                  └────────┬────────┘
+                           │
+┌──────────────────────────▼──────────────────────────┐
+│                   Your Local Machine                 │
+├─────────────────────────────────────────────────────┤
+│                       Caddy                          │
+│            (Reverse Proxy + Auto HTTPS)              │
+├───────────┬───────────┬───────────┬─────────────────┤
+│  Next.js  │ PocketBase│   Umami   │      Redis      │
+│    App    │ (Backend) │(Analytics)│     (Cache)     │
+│   :3000   │   :8090   │   :3001   │     :6379       │
+└───────────┴───────────┴───────────┴─────────────────┘
+```
+
+## Tech Stack (Self-Hosted)
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| Frontend | Next.js 15 (App Router) | React Server Components, Turbopack |
+| Styling | Tailwind CSS + shadcn/ui | Utility-first with components |
+| State | Zustand | Client-side cart state |
+| Backend/DB | PocketBase | SQLite + Auth + File Storage + REST API |
+| Auth | PocketBase OAuth2 | Google OAuth provider |
+| Storage | PocketBase Files | Product images |
+| Reverse Proxy | Caddy | Auto HTTPS, compression |
+| Email | Nodemailer + SMTP | Gmail SMTP or self-hosted |
+| PDF | jsPDF + jspdf-autotable | Invoice generation |
+| Analytics | Umami | Privacy-focused, GDPR compliant |
+| CAPTCHA | hCaptcha | Bot protection (free tier) |
+| Rate Limiting | Redis | Distributed rate limiting |
+| Tunnel | Cloudflare Tunnel | Public access without port forwarding |
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+
-- npm or yarn
-- Firebase project
-- Resend account (for emails)
+- Docker & Docker Compose
+- Node.js 20+ (for local development)
+- Free Cloudflare account (optional, for public access)
+- Google Cloud Console project (for OAuth)
 
-### Installation
+### Quick Start
 
 1. **Clone the repository**
    ```bash
@@ -57,182 +81,193 @@ Pasargad Prints is a single-seller e-commerce platform designed for selling cust
    cd pasargad-prints
    ```
 
-2. **Install dependencies**
+2. **Configure environment**
    ```bash
-   npm install
+   cp .env.example .env
+   # Edit .env with your values
    ```
 
-3. **Set up environment variables**
+3. **Start all services**
    ```bash
-   cp .env.example .env.local
+   # Development mode (local only)
+   npm run docker:dev
+
+   # With public access via Cloudflare Tunnel
+   npm run docker:prod
    ```
 
-   Edit `.env.local` with your credentials (see [Environment Variables](#environment-variables) below).
+4. **Access the services**
+   - App: https://localhost
+   - PocketBase Admin: https://api.localhost/_/
+   - Umami Analytics: https://analytics.localhost
 
-4. **Run the development server**
-   ```bash
-   npm run dev
-   ```
+### First-Time Setup
 
-5. **Open** [http://localhost:3000](http://localhost:3000)
+1. **Configure PocketBase**
+   - Open https://api.localhost/_/
+   - Create admin account
+   - Go to Settings → Auth Providers → Google
+   - Add your Google OAuth credentials
 
-### Firebase Setup
+2. **Configure Umami**
+   - Open https://analytics.localhost
+   - Login with `admin` / `umami`
+   - Change password immediately
+   - Add website and copy tracking ID
 
-1. Create a new Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
-2. Enable **Authentication** with Google provider
-3. Create a **Firestore Database**
-4. Enable **Storage** for product images
-5. Generate a service account key for admin SDK
-6. Copy credentials to `.env.local`
-
-### Firestore Security Rules
-
-Deploy these security rules to your Firestore:
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    function isAdmin() {
-      return request.auth != null && request.auth.token.email == 'YOUR_ADMIN_EMAIL';
-    }
-
-    // Products & Categories: Public read, admin write
-    match /products/{doc} { allow read: if true; allow write: if isAdmin(); }
-    match /categories/{doc} { allow read: if true; allow write: if isAdmin(); }
-
-    // Users: Own data or admin
-    match /users/{userId} {
-      allow read: if isAdmin() || request.auth.uid == userId;
-      allow create: if request.auth.uid == userId;
-      allow update: if request.auth.uid == userId || isAdmin();
-    }
-
-    // Orders: Own orders or admin
-    match /orders/{doc} {
-      allow read: if isAdmin() || resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null;
-      allow update: if isAdmin();
-    }
-
-    // Admin only
-    match /discounts/{doc} { allow read, write: if isAdmin(); }
-
-    // Contact: Public create, admin read
-    match /contactMessages/{doc} {
-      allow create: if true;
-      allow read, update, delete: if isAdmin();
-    }
-  }
-}
-```
+3. **Import Collections** (optional)
+   - Import the schema from `pb_migrations/` if provided
+   - Or create collections manually per spec.md
 
 ## Environment Variables
 
-Create a `.env.local` file with the following variables:
+Create a `.env` file with the following:
 
 ```env
-# Firebase Client (Public)
-NEXT_PUBLIC_FIREBASE_API_KEY=
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
-NEXT_PUBLIC_FIREBASE_APP_ID=
+# PocketBase
+PUBLIC_POCKETBASE_URL=https://api.localhost
+POCKETBASE_ADMIN_EMAIL=your-email@example.com
 
-# Firebase Admin (Secret)
-FIREBASE_ADMIN_PROJECT_ID=
-FIREBASE_ADMIN_CLIENT_EMAIL=
-FIREBASE_ADMIN_PRIVATE_KEY=
+# Email (Gmail SMTP - 500 emails/day free)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM=noreply@yoursite.com
 
-# Email (Resend)
-RESEND_API_KEY=
+# Umami
+UMAMI_DB_PASSWORD=secure-password
+UMAMI_APP_SECRET=random-32-char-secret
 
-# Cloudflare Turnstile
-NEXT_PUBLIC_TURNSTILE_SITE_KEY=
-TURNSTILE_SECRET_KEY=
+# hCaptcha (from dashboard.hcaptcha.com)
+HCAPTCHA_SITE_KEY=
+HCAPTCHA_SECRET_KEY=
 
-# Google Services (Optional)
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
-NEXT_PUBLIC_GA_MEASUREMENT_ID=
-
-# Upstash Redis (Optional - falls back to in-memory)
-UPSTASH_REDIS_REST_URL=
-UPSTASH_REDIS_REST_TOKEN=
+# Google OAuth (from console.cloud.google.com)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
 
 # Application
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-ADMIN_EMAIL=your-email@example.com
+ADMIN_EMAIL=admin@example.com
+SITE_PASSWORD=  # Leave empty to disable
 
-# Site Password Protection (Optional)
-SITE_PASSWORD=
+# Cloudflare Tunnel (optional)
+CLOUDFLARE_TUNNEL_TOKEN=
 ```
 
 ## Project Structure
 
 ```
-src/
-├── app/
-│   ├── (gate)/              # Password protection
-│   │   └── password/
-│   ├── (storefront)/        # Public pages
-│   │   ├── page.tsx         # Homepage
-│   │   ├── products/        # Product listing & detail
-│   │   ├── cart/
-│   │   ├── checkout/
-│   │   ├── account/         # User account pages
-│   │   ├── about/
-│   │   ├── contact/
-│   │   └── shipping-returns/
-│   ├── (admin)/             # Admin dashboard
-│   │   └── admin/
-│   │       ├── page.tsx     # Dashboard home
-│   │       ├── products/
-│   │       ├── orders/
-│   │       ├── customers/
-│   │       ├── discounts/
-│   │       ├── messages/
-│   │       └── analytics/
-│   └── api/                 # API routes
-│       ├── email/
-│       ├── site-access/
-│       └── turnstile/
-├── components/
-│   ├── ui/                  # shadcn/ui components
-│   ├── storefront/          # Store components
-│   ├── admin/               # Admin components
-│   └── shared/              # Shared components
-├── hooks/                   # Custom React hooks
-├── lib/
-│   ├── firebase/            # Firebase configuration
-│   ├── email/               # Email templates
-│   ├── pdf/                 # Invoice generation
-│   └── api/                 # API utilities
-└── types/                   # TypeScript types
+├── docker-compose.yml     # Service orchestration
+├── Dockerfile             # Next.js production build
+├── Caddyfile              # Reverse proxy config
+├── src/
+│   ├── app/               # Next.js App Router pages
+│   ├── components/        # React components
+│   ├── lib/
+│   │   ├── pocketbase/    # PocketBase client & helpers
+│   │   ├── email/         # Nodemailer templates
+│   │   └── pdf/           # Invoice generation
+│   ├── hooks/             # Custom React hooks
+│   └── types/             # TypeScript definitions
+├── pb_data/               # PocketBase SQLite + files
+├── pb_migrations/         # Schema migrations
+└── scripts/
+    └── backup.sh          # Automated backup script
 ```
 
-## Features
+## Available Scripts
 
-### Storefront
+```bash
+# Development
+npm run dev              # Start Next.js dev server
+npm run build            # Build for production
+npm run lint             # Run ESLint
 
-- **Homepage** - Hero, featured products, category links
-- **Product Listing** - Filter by category, tags, price; search; sort
-- **Product Detail** - Image gallery, variant selection, dynamic pricing
-- **Shopping Cart** - Add/remove items, quantity adjustment, discount codes
-- **Checkout** - Address selection, order review, confirmation
-- **User Account** - Order history, saved addresses, wishlist
+# Docker
+npm run docker:dev       # Start local development stack
+npm run docker:prod      # Start with Cloudflare Tunnel
+npm run docker:down      # Stop all services
+npm run docker:logs      # View container logs
+npm run docker:build     # Rebuild containers
 
-### Admin Dashboard
+# Utilities
+npm run backup           # Run backup script
+npm run pb:admin         # Open PocketBase admin
+npm run umami:admin      # Open Umami dashboard
+```
 
-- **Dashboard** - Quick stats, recent orders, pending actions
-- **Products** - CRUD operations, image upload, variant management
-- **Orders** - Status management, invoice generation, tracking
-- **Customers** - View profiles, order history, admin notes
-- **Discounts** - Create percentage or fixed amount codes
-- **Messages** - View and manage contact form submissions
-- **Analytics** - Sales charts, top products, customer insights
+## Backup & Recovery
 
-### Order Flow
+### Automated Backups
+
+```bash
+# Run backup manually
+npm run backup
+
+# Schedule daily backups (add to crontab)
+crontab -e
+# Add: 0 2 * * * /path/to/project/scripts/backup.sh
+```
+
+Backups include:
+- PocketBase SQLite database
+- Uploaded product images
+- Umami PostgreSQL database
+- Environment file (for reference)
+
+### Restore from Backup
+
+```bash
+# Extract backup
+tar -xzf backups/backup_YYYYMMDD.tar.gz -C ./restore
+
+# Restore PocketBase
+cp -r restore/pb_data/* ./pb_data/
+cp -r restore/pb_public/* ./pb_public/
+
+# Restore Umami
+docker compose exec -T umami-db psql -U umami umami < restore/umami.sql
+```
+
+## Resource Requirements
+
+| Service | RAM | CPU | Storage |
+|---------|-----|-----|---------|
+| Next.js App | ~512MB | 0.5 core | 500MB |
+| PocketBase | ~128MB | 0.2 core | Variable |
+| Redis | ~64MB | 0.1 core | 100MB |
+| Umami + Postgres | ~256MB | 0.3 core | 1GB |
+| Caddy | ~32MB | 0.1 core | 10MB |
+| **Total** | **~1GB** | **~1.2 cores** | ~2GB+ |
+
+Runs comfortably on any modern laptop or desktop.
+
+## Public Access with Cloudflare Tunnel
+
+To expose your local instance to the internet:
+
+1. **Create Cloudflare account** (free)
+2. **Install cloudflared**
+   ```bash
+   brew install cloudflare/cloudflare/cloudflared  # macOS
+   ```
+3. **Create tunnel**
+   ```bash
+   cloudflared tunnel login
+   cloudflared tunnel create pasargad-prints
+   cloudflared tunnel token pasargad-prints
+   # Copy token to .env CLOUDFLARE_TUNNEL_TOKEN
+   ```
+4. **Configure routes** in Cloudflare Dashboard:
+   - Zero Trust → Networks → Tunnels → Configure
+   - Add hostnames pointing to your services
+5. **Start with tunnel**
+   ```bash
+   npm run docker:prod
+   ```
+
+## Order Flow
 
 ```
 Customer Places Order
@@ -250,65 +285,35 @@ Customer Places Order
     Delivered
 ```
 
-### Security Features
-
-- **Authentication** - Google OAuth via Firebase
-- **Authorization** - Admin-only routes protected server-side
-- **Rate Limiting** - Upstash Redis (with in-memory fallback)
-- **CAPTCHA** - Cloudflare Turnstile on contact form
-- **CSP Headers** - Strict Content Security Policy
-- **Password Protection** - Optional site-wide password gate with IP blocking
-
-## Scripts
-
-```bash
-npm run dev      # Start development server
-npm run build    # Build for production
-npm run start    # Start production server
-npm run lint     # Run ESLint
-```
-
-## Deployment
-
-### Vercel (Recommended)
-
-1. Push to GitHub
-2. Import project in [Vercel](https://vercel.com)
-3. Add environment variables
-4. Deploy
-
-### Other Platforms
-
-The project can be deployed to any platform supporting Next.js:
-- AWS Amplify
-- Netlify
-- Railway
-- Self-hosted with `npm run build && npm run start`
-
 ## Configuration
 
 ### Shipping
-
 - **USA only** - Address validation for US ZIP codes
 - **Rates**: $5 flat rate, FREE on orders $50+
 - **Processing**: 5-7 business days before shipping
 
 ### Payment
-
-- Manual invoice process (no payment gateway integration)
+- Manual invoice process (no payment gateway)
 - Accepted methods: Apple Pay, Zelle
 - Payment due: 14 days from invoice
 
 ### Products
-
 - **Variants**: Size, Color, Material (PLA/PETG)
 - **Pricing**: Base price + variant modifiers
 - **Images**: Up to 5 per product (5MB max, WebP optimized)
-- **Inventory**: Print-on-demand (no stock tracking)
+
+## Security
+
+- **Authentication**: PocketBase OAuth2 with Google
+- **Authorization**: Collection rules + admin checks
+- **Rate Limiting**: Redis-backed with fallback
+- **HTTPS**: Automatic via Caddy (local) or Cloudflare (public)
+- **CAPTCHA**: hCaptcha on contact form
+- **CSP Headers**: Strict Content Security Policy
 
 ## Contributing
 
-This is a private project. For any questions, contact the admin.
+This is a private project. For questions, contact the admin.
 
 ## License
 
@@ -318,4 +323,4 @@ Private - All rights reserved.
 
 **Pasargad Prints** - Premium 3D Printed Home Decor
 
-Made with care in the USA
+Self-hosted with love 🏠
