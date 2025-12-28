@@ -1,41 +1,44 @@
-# Pasargad Prints
+# Self-Hosted E-Commerce Template
 
-A modern, self-hosted e-commerce platform for 3D printed home decor products. Built with Next.js 15, PocketBase, and Docker.
+A modern, 100% self-hosted e-commerce template built with Next.js 15, PocketBase, and Docker. Perfect for small businesses, makers, and anyone who wants complete control over their online store.
 
 ![Next.js](https://img.shields.io/badge/Next.js-15-black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)
 ![PocketBase](https://img.shields.io/badge/PocketBase-0.21-7c3aed)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ed)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-## Overview
+## Why This Template?
 
-Pasargad Prints is a **100% self-hosted** single-seller e-commerce platform designed for selling custom 3D printed products. No external services required - everything runs on your local machine with Docker.
+- **100% Free** - No monthly fees, no transaction fees, no vendor lock-in
+- **Self-Hosted** - Run on your own hardware or any cloud provider
+- **Customizable** - Adapt to any product type (physical goods, digital, services)
+- **Modern Stack** - Next.js 15, TypeScript, Tailwind CSS, shadcn/ui
+- **Simple** - Single-seller focus, no complex multi-vendor features
 
-### Key Features
+## Features
 
-- **Product Catalog** - Variants for size, color, and material with dynamic pricing
-- **Shopping Cart** - Persistent cart with Zustand (localStorage for guests)
-- **User Accounts** - Google OAuth authentication via PocketBase
-- **Order Management** - Full order lifecycle from placement to delivery
-- **Admin Dashboard** - Product, order, customer, and discount management
+- **Product Catalog** - Flexible variants (size, color, or any custom option)
+- **Shopping Cart** - Persistent cart with localStorage (guests) or database (logged in)
+- **User Accounts** - Google OAuth authentication
+- **Order Management** - Customizable order workflow
+- **Admin Dashboard** - Products, orders, customers, discounts
 - **Invoice Generation** - PDF invoices with jsPDF
-- **Email Notifications** - Transactional emails via Nodemailer + SMTP
+- **Email Notifications** - Transactional emails via SMTP
 - **Analytics** - Privacy-focused tracking with Umami
 - **Dark Mode** - System-aware theme with manual toggle
-- **Password Protection** - Optional site-wide password gate
 
-## Self-Hosted Architecture
+## Architecture
 
 ```
                     Internet (Optional)
                            │
                   ┌────────▼────────┐
-                  │ Cloudflare Tunnel│
+                  │ Cloudflare Tunnel│  (Free public access)
                   └────────┬────────┘
                            │
 ┌──────────────────────────▼──────────────────────────┐
-│                   Your Local Machine                 │
+│                   Your Machine                       │
 ├─────────────────────────────────────────────────────┤
 │                       Caddy                          │
 │            (Reverse Proxy + Auto HTTPS)              │
@@ -46,114 +49,99 @@ Pasargad Prints is a **100% self-hosted** single-seller e-commerce platform desi
 └───────────┴───────────┴───────────┴─────────────────┘
 ```
 
-## Tech Stack (Self-Hosted)
-
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| Frontend | Next.js 15 (App Router) | React Server Components, Turbopack |
-| Styling | Tailwind CSS + shadcn/ui | Utility-first with components |
-| State | Zustand | Client-side cart state |
-| Backend/DB | PocketBase | SQLite + Auth + File Storage + REST API |
-| Auth | PocketBase OAuth2 | Google OAuth provider |
-| Storage | PocketBase Files | Product images |
-| Reverse Proxy | Caddy | Auto HTTPS, compression |
-| Email | Nodemailer + SMTP | Gmail SMTP or self-hosted |
-| PDF | jsPDF + jspdf-autotable | Invoice generation |
-| Analytics | Umami | Privacy-focused, GDPR compliant |
-| CAPTCHA | hCaptcha | Bot protection (free tier) |
-| Rate Limiting | Redis | Distributed rate limiting |
-| Tunnel | Cloudflare Tunnel | Public access without port forwarding |
-
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 
 - Docker & Docker Compose
 - Node.js 20+ (for local development)
 - Free Cloudflare account (optional, for public access)
-- Google Cloud Console project (for OAuth)
 
-### Quick Start
+### 1. Clone and Configure
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/farzahn/pasargad-prints.git
-   cd pasargad-prints
-   ```
+```bash
+git clone https://github.com/yourusername/ecommerce-template.git
+cd ecommerce-template
 
-2. **Configure environment**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your values
-   ```
+# Copy and edit environment variables
+cp .env.example .env
+```
 
-3. **Start all services**
-   ```bash
-   # Development mode (local only)
-   npm run docker:dev
+### 2. Customize Your Store
 
-   # With public access via Cloudflare Tunnel
-   npm run docker:prod
-   ```
-
-4. **Access the services**
-   - App: https://localhost
-   - PocketBase Admin: https://api.localhost/_/
-   - Umami Analytics: https://analytics.localhost
-
-### First-Time Setup
-
-1. **Configure PocketBase**
-   - Open https://api.localhost/_/
-   - Create admin account
-   - Go to Settings → Auth Providers → Google
-   - Add your Google OAuth credentials
-
-2. **Configure Umami**
-   - Open https://analytics.localhost
-   - Login with `admin` / `umami`
-   - Change password immediately
-   - Add website and copy tracking ID
-
-3. **Import Collections** (optional)
-   - Import the schema from `pb_migrations/` if provided
-   - Or create collections manually per spec.md
-
-## Environment Variables
-
-Create a `.env` file with the following:
+Edit `.env` with your store details:
 
 ```env
-# PocketBase
-PUBLIC_POCKETBASE_URL=https://api.localhost
-POCKETBASE_ADMIN_EMAIL=your-email@example.com
+# Your store name
+STORE_NAME=My Awesome Store
 
-# Email (Gmail SMTP - 500 emails/day free)
+# Order number prefix (e.g., ORD-20250127-0001)
+ORDER_PREFIX=ORD
+
+# Admin email
+ADMIN_EMAIL=you@example.com
+
+# SMTP for emails
 SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
-SMTP_FROM=noreply@yoursite.com
-
-# Umami
-UMAMI_DB_PASSWORD=secure-password
-UMAMI_APP_SECRET=random-32-char-secret
-
-# hCaptcha (from dashboard.hcaptcha.com)
-HCAPTCHA_SITE_KEY=
-HCAPTCHA_SECRET_KEY=
-
-# Google OAuth (from console.cloud.google.com)
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-
-# Application
-ADMIN_EMAIL=admin@example.com
-SITE_PASSWORD=  # Leave empty to disable
-
-# Cloudflare Tunnel (optional)
-CLOUDFLARE_TUNNEL_TOKEN=
 ```
+
+### 3. Start Services
+
+```bash
+# Development (local only)
+npm run docker:dev
+
+# With public access via Cloudflare Tunnel
+npm run docker:prod
+```
+
+### 4. Access Your Store
+
+- **App**: https://localhost
+- **PocketBase Admin**: https://api.localhost/_/
+- **Umami Analytics**: https://analytics.localhost
+
+## Customization Guide
+
+### Product Variants
+
+The template supports flexible product variants. By default, products have:
+
+- **Sizes** - e.g., Small, Medium, Large
+- **Colors** - e.g., Red, Blue, Green
+- **Options** - Generic field for any other variant (material, style, etc.)
+
+To customize variants, modify `src/types/pocketbase.ts` and update the PocketBase collection schema.
+
+### Order Workflow
+
+Default order flow:
+```
+Pending Review → Invoice Sent → Payment Received → Processing → Shipped → Delivered
+```
+
+The "Processing" status name is customizable via `PROCESSING_STATUS_NAME`:
+- `printing` - for 3D printed products
+- `preparing` - for made-to-order items
+- `manufacturing` - for custom manufacturing
+- `packing` - for standard retail
+
+### Shipping
+
+Configure in `.env`:
+```env
+SHIPPING_FLAT_RATE=500          # $5.00 in cents
+FREE_SHIPPING_THRESHOLD=5000    # Free shipping at $50.00 (0 to disable)
+SHIPPING_REGION=US              # For address validation
+```
+
+### Branding
+
+1. Replace `public/logo.png` with your logo
+2. Update `STORE_NAME` in `.env`
+3. Customize colors in `tailwind.config.ts`
 
 ## Project Structure
 
@@ -166,17 +154,41 @@ CLOUDFLARE_TUNNEL_TOKEN=
 │   ├── components/        # React components
 │   ├── lib/
 │   │   ├── pocketbase/    # PocketBase client & helpers
-│   │   ├── email/         # Nodemailer templates
+│   │   ├── config.ts      # Store configuration
+│   │   ├── email/         # Email templates
 │   │   └── pdf/           # Invoice generation
 │   ├── hooks/             # Custom React hooks
 │   └── types/             # TypeScript definitions
 ├── pb_data/               # PocketBase SQLite + files
-├── pb_migrations/         # Schema migrations
 └── scripts/
     └── backup.sh          # Automated backup script
 ```
 
-## Available Scripts
+## Environment Variables
+
+### Required
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `STORE_NAME` | Your store name | My Store |
+| `ADMIN_EMAIL` | Admin email address | admin@example.com |
+| `SMTP_HOST` | SMTP server | smtp.gmail.com |
+| `SMTP_USER` | SMTP username | you@gmail.com |
+| `SMTP_PASS` | SMTP password/app password | your-app-password |
+
+### Optional
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ORDER_PREFIX` | Order number prefix | ORD |
+| `CURRENCY_SYMBOL` | Currency symbol | $ |
+| `SHIPPING_FLAT_RATE` | Flat rate in cents | 500 |
+| `FREE_SHIPPING_THRESHOLD` | Free shipping threshold in cents | 5000 |
+| `PROCESSING_STATUS_NAME` | Custom name for processing status | processing |
+| `SITE_PASSWORD` | Password protect entire site | (empty = disabled) |
+| `COMPOSE_PROJECT_NAME` | Docker container prefix | ecommerce |
+
+## Scripts
 
 ```bash
 # Development
@@ -189,12 +201,9 @@ npm run docker:dev       # Start local development stack
 npm run docker:prod      # Start with Cloudflare Tunnel
 npm run docker:down      # Stop all services
 npm run docker:logs      # View container logs
-npm run docker:build     # Rebuild containers
 
 # Utilities
 npm run backup           # Run backup script
-npm run pb:admin         # Open PocketBase admin
-npm run umami:admin      # Open Umami dashboard
 ```
 
 ## Backup & Recovery
@@ -202,125 +211,76 @@ npm run umami:admin      # Open Umami dashboard
 ### Automated Backups
 
 ```bash
-# Run backup manually
+# Run manually
 npm run backup
 
-# Schedule daily backups (add to crontab)
-crontab -e
-# Add: 0 2 * * * /path/to/project/scripts/backup.sh
+# Schedule daily (crontab)
+0 2 * * * /path/to/project/scripts/backup.sh
 ```
 
 Backups include:
 - PocketBase SQLite database
 - Uploaded product images
-- Umami PostgreSQL database
-- Environment file (for reference)
+- Umami analytics database
 
-### Restore from Backup
+### Restore
 
 ```bash
-# Extract backup
 tar -xzf backups/backup_YYYYMMDD.tar.gz -C ./restore
-
-# Restore PocketBase
 cp -r restore/pb_data/* ./pb_data/
-cp -r restore/pb_public/* ./pb_public/
-
-# Restore Umami
-docker compose exec -T umami-db psql -U umami umami < restore/umami.sql
 ```
-
-## Resource Requirements
-
-| Service | RAM | CPU | Storage |
-|---------|-----|-----|---------|
-| Next.js App | ~512MB | 0.5 core | 500MB |
-| PocketBase | ~128MB | 0.2 core | Variable |
-| Redis | ~64MB | 0.1 core | 100MB |
-| Umami + Postgres | ~256MB | 0.3 core | 1GB |
-| Caddy | ~32MB | 0.1 core | 10MB |
-| **Total** | **~1GB** | **~1.2 cores** | ~2GB+ |
-
-Runs comfortably on any modern laptop or desktop.
 
 ## Public Access with Cloudflare Tunnel
 
-To expose your local instance to the internet:
+To expose your local store to the internet (free):
 
-1. **Create Cloudflare account** (free)
-2. **Install cloudflared**
-   ```bash
-   brew install cloudflare/cloudflare/cloudflared  # macOS
-   ```
-3. **Create tunnel**
+1. Create a [Cloudflare account](https://dash.cloudflare.com)
+2. Install cloudflared: `brew install cloudflare/cloudflare/cloudflared`
+3. Create tunnel:
    ```bash
    cloudflared tunnel login
-   cloudflared tunnel create pasargad-prints
-   cloudflared tunnel token pasargad-prints
+   cloudflared tunnel create my-store
+   cloudflared tunnel token my-store
    # Copy token to .env CLOUDFLARE_TUNNEL_TOKEN
    ```
-4. **Configure routes** in Cloudflare Dashboard:
-   - Zero Trust → Networks → Tunnels → Configure
-   - Add hostnames pointing to your services
-5. **Start with tunnel**
-   ```bash
-   npm run docker:prod
-   ```
+4. Configure routes in Cloudflare Dashboard
+5. Start with: `npm run docker:prod`
 
-## Order Flow
+## Resource Requirements
 
-```
-Customer Places Order
-        ↓
-   Pending Review ──→ Admin Reviews
-        ↓
-   Invoice Sent ──→ Customer Pays (Apple Pay / Zelle)
-        ↓
-  Payment Received
-        ↓
-     Printing
-        ↓
-     Shipped ──→ Tracking Added
-        ↓
-    Delivered
-```
+| Service | RAM | CPU |
+|---------|-----|-----|
+| Next.js App | ~512MB | 0.5 core |
+| PocketBase | ~128MB | 0.2 core |
+| Redis | ~64MB | 0.1 core |
+| Umami + Postgres | ~256MB | 0.3 core |
+| Caddy | ~32MB | 0.1 core |
+| **Total** | **~1GB** | **~1.2 cores** |
 
-## Configuration
+Runs comfortably on any modern laptop or Raspberry Pi 4.
 
-### Shipping
-- **USA only** - Address validation for US ZIP codes
-- **Rates**: $5 flat rate, FREE on orders $50+
-- **Processing**: 5-7 business days before shipping
+## Tech Stack
 
-### Payment
-- Manual invoice process (no payment gateway)
-- Accepted methods: Apple Pay, Zelle
-- Payment due: 14 days from invoice
-
-### Products
-- **Variants**: Size, Color, Material (PLA/PETG)
-- **Pricing**: Base price + variant modifiers
-- **Images**: Up to 5 per product (5MB max, WebP optimized)
-
-## Security
-
-- **Authentication**: PocketBase OAuth2 with Google
-- **Authorization**: Collection rules + admin checks
-- **Rate Limiting**: Redis-backed with fallback
-- **HTTPS**: Automatic via Caddy (local) or Cloudflare (public)
-- **CAPTCHA**: hCaptcha on contact form
-- **CSP Headers**: Strict Content Security Policy
+| Layer | Technology |
+|-------|------------|
+| Frontend | Next.js 15 (App Router) |
+| Styling | Tailwind CSS + shadcn/ui |
+| State | Zustand |
+| Backend/DB | PocketBase (SQLite) |
+| Auth | PocketBase OAuth2 |
+| Reverse Proxy | Caddy |
+| Email | Nodemailer + SMTP |
+| Analytics | Umami |
+| Cache | Redis |
 
 ## Contributing
 
-This is a private project. For questions, contact the admin.
+Contributions welcome! Please read the contributing guidelines first.
 
 ## License
 
-Private - All rights reserved.
+MIT License - Use freely for personal or commercial projects.
 
 ---
 
-**Pasargad Prints** - Premium 3D Printed Home Decor
-
-Self-hosted with love 🏠
+**Built with ❤️ for makers, small businesses, and anyone who values ownership.**

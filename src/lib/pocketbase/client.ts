@@ -63,10 +63,11 @@ export function createAuthenticatedClient(token: string): TypedPocketBase {
 
 /**
  * Check if the current user is the admin
+ * Admin email is configured via ADMIN_EMAIL environment variable
  */
 export function isAdmin(pb: TypedPocketBase): boolean {
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
-  return pb.authStore.isValid && pb.authStore.record?.email === adminEmail;
+  const adminEmail = process.env.ADMIN_EMAIL || '';
+  return !!adminEmail && pb.authStore.isValid && pb.authStore.record?.email === adminEmail;
 }
 
 /**

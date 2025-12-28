@@ -1,4 +1,4 @@
-# Pasargad Prints - Caddy Reverse Proxy Configuration
+# Self-Hosted E-Commerce Template - Caddy Reverse Proxy Configuration
 # Handles HTTPS automatically with local certificates
 
 {
@@ -52,7 +52,9 @@ analytics.localhost {
 }
 
 # Production configuration (uncomment and modify for your domain)
-# pasargadprints.com, www.pasargadprints.com {
+# Replace "yourdomain.com" with your actual domain
+#
+# yourdomain.com, www.yourdomain.com {
 #     reverse_proxy app:3000
 #     encode gzip zstd
 #
@@ -62,17 +64,17 @@ analytics.localhost {
 #         X-Frame-Options DENY
 #         X-XSS-Protection "1; mode=block"
 #         Referrer-Policy strict-origin-when-cross-origin
-#         Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.hcaptcha.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.pasargadprints.com https://*.hcaptcha.com; frame-src https://*.hcaptcha.com;"
+#         Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.hcaptcha.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.yourdomain.com https://*.hcaptcha.com; frame-src https://*.hcaptcha.com;"
 #         -Server
 #     }
 # }
 #
-# api.pasargadprints.com {
+# api.yourdomain.com {
 #     reverse_proxy pocketbase:8090
 #     encode gzip zstd
 # }
 #
-# analytics.pasargadprints.com {
+# analytics.yourdomain.com {
 #     reverse_proxy umami:3000
 #     encode gzip zstd
 # }

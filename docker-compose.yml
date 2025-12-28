@@ -1,5 +1,6 @@
-# Pasargad Prints - Self-Hosted E-Commerce Platform
+# Self-Hosted E-Commerce Template
 # Docker Compose Configuration for Local Development
+# Customize container names by setting COMPOSE_PROJECT_NAME in .env
 
 version: '3.8'
 
@@ -7,7 +8,7 @@ services:
   # Caddy Reverse Proxy (handles HTTPS locally)
   caddy:
     image: caddy:2-alpine
-    container_name: pasargad-caddy
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-caddy
     ports:
       - "80:80"
       - "443:443"
@@ -21,14 +22,14 @@ services:
       - umami
     restart: unless-stopped
     networks:
-      - pasargad-network
+      - app-network
 
   # Next.js Application
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: pasargad-app
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-app
     expose:
       - "3000"
     environment:
@@ -41,22 +42,28 @@ services:
       - SMTP_PORT=${SMTP_PORT:-587}
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASS=${SMTP_PASS}
-      - SMTP_FROM=${SMTP_FROM:-noreply@pasargadprints.com}
+      - SMTP_FROM=${SMTP_FROM:-noreply@example.com}
       - NEXT_PUBLIC_HCAPTCHA_SITE_KEY=${HCAPTCHA_SITE_KEY}
       - HCAPTCHA_SECRET_KEY=${HCAPTCHA_SECRET_KEY}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+      - STORE_NAME=${STORE_NAME:-My Store}
+      - ORDER_PREFIX=${ORDER_PREFIX:-ORD}
+      - CURRENCY_SYMBOL=${CURRENCY_SYMBOL:-$}
+      - SHIPPING_FLAT_RATE=${SHIPPING_FLAT_RATE:-500}
+      - FREE_SHIPPING_THRESHOLD=${FREE_SHIPPING_THRESHOLD:-5000}
+      - PROCESSING_STATUS_NAME=${PROCESSING_STATUS_NAME:-processing}
       - SITE_PASSWORD=${SITE_PASSWORD}
     depends_on:
       - pocketbase
       - redis
     restart: unless-stopped
     networks:
-      - pasargad-network
+      - app-network
 
   # PocketBase (Database + Auth + Storage)
   pocketbase:
     image: ghcr.io/muchobien/pocketbase:latest
-    container_name: pasargad-pocketbase
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-pocketbase
     expose:
       - "8090"
     volumes:
@@ -68,12 +75,12 @@ services:
     restart: unless-stopped
     command: serve --http=0.0.0.0:8090 --dir=/pb_data --publicDir=/pb_public --migrationsDir=/pb_migrations
     networks:
-      - pasargad-network
+      - app-network
 
   # Redis (Rate Limiting & Session Caching)
   redis:
     image: redis:7-alpine
-    container_name: pasargad-redis
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-redis
     expose:
       - "6379"
     volumes:
@@ -81,12 +88,12 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
     networks:
-      - pasargad-network
+      - app-network
 
   # Umami Analytics
   umami:
     image: ghcr.io/umami-software/umami:postgresql-latest
-    container_name: pasargad-umami
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-umami
     expose:
       - "3000"
     environment:
@@ -99,12 +106,12 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - pasargad-network
+      - app-network
 
   # Umami PostgreSQL Database
   umami-db:
     image: postgres:15-alpine
-    container_name: pasargad-umami-db
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-umami-db
     environment:
       POSTGRES_DB: umami
       POSTGRES_USER: umami
@@ -118,13 +125,13 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - pasargad-network
+      - app-network
 
   # Cloudflare Tunnel (exposes local services to internet)
   # Only enable when you need public access
   cloudflared:
     image: cloudflare/cloudflared:latest
-    container_name: pasargad-tunnel
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-tunnel
     command: tunnel --no-autoupdate run
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
@@ -132,7 +139,7 @@ services:
     depends_on:
       - caddy
     networks:
-      - pasargad-network
+      - app-network
     profiles:
       - tunnel  # Only starts with: docker compose --profile tunnel up
 
@@ -143,5 +150,5 @@ volumes:
   umami_db_data:
 
 networks:
-  pasargad-network:
+  app-network:
     driver: bridge

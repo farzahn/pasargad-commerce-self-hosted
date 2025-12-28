@@ -1,4 +1,4 @@
-# Pasargad Prints - Next.js Production Dockerfile
+# Self-Hosted E-Commerce Template - Next.js Production Dockerfile
 # Multi-stage build for optimal image size
 
 # ============================================

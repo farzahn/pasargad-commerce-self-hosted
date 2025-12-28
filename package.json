@@ -1,8 +1,8 @@
 {
-  "name": "pasargad-prints",
+  "name": "ecommerce-template",
   "version": "1.0.0",
   "private": true,
-  "description": "Self-hosted e-commerce platform for 3D printed products",
+  "description": "Self-hosted e-commerce template - simple, customizable, 100% free",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",

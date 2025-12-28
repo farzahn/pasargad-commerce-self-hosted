@@ -1,8 +1,8 @@
 /**
  * PocketBase Type Definitions
  *
- * Type-safe interfaces for all PocketBase collections as defined in spec.md
- * These types mirror the PocketBase collection schema.
+ * Type-safe interfaces for all PocketBase collections.
+ * This is a generic e-commerce template - customize variants and fields as needed.
  */
 
 import PocketBase, { RecordService } from 'pocketbase';
@@ -23,28 +23,33 @@ export interface BaseRecord {
 }
 
 // ============================================
-// Product Types
+// Product Variant Types
 // ============================================
 
-export interface SizeVariant {
+/**
+ * Generic variant option - can be used for any variant type
+ * Examples: sizes, colors, materials, styles, etc.
+ */
+export interface VariantOption {
   name: string;
   priceModifier: number;
+  /** Optional metadata for the variant (e.g., hex for colors, dimensions for sizes) */
+  metadata?: Record<string, string | number>;
 }
 
-export interface ColorVariant {
-  name: string;
-  hex?: string;
-  priceModifier: number;
-}
-
-export interface MaterialVariant {
-  name: string;
-  priceModifier: number;
-}
+// Convenience aliases for common variant types
+export type SizeVariant = VariantOption;
+export type ColorVariant = VariantOption & { hex?: string };
 
 export type ProductStatus = 'active' | 'inactive';
 export type ProductBadge = 'new' | 'sale' | '';
 
+/**
+ * Product interface - customize variants based on your needs
+ *
+ * Default variants: sizes, colors, options (generic)
+ * You can rename or add more variant fields in PocketBase admin
+ */
 export interface Product extends BaseRecord {
   name: string;
   slug: string;
@@ -54,9 +59,13 @@ export interface Product extends BaseRecord {
   category: string; // Relation ID to categories
   tags: string[];
   images: string[]; // File field names
-  sizes: SizeVariant[];
-  colors: ColorVariant[];
-  materials: MaterialVariant[];
+
+  // Default variant fields - customize as needed
+  sizes: VariantOption[];
+  colors: VariantOption[];
+  /** Generic options field - use for any additional variants (material, style, etc.) */
+  options: VariantOption[];
+
   status: ProductStatus;
   isFeatured: boolean;
   badge: ProductBadge;
@@ -136,22 +145,29 @@ export interface Wishlist extends BaseRecord {
 // Order Types
 // ============================================
 
+/**
+ * Order status - customize based on your workflow
+ * Default: pending_review -> invoice_sent -> payment_received -> processing -> shipped -> delivered
+ * The 'processing' status can be renamed via PROCESSING_STATUS_NAME env var
+ */
 export type OrderStatus =
   | 'pending_review'
   | 'invoice_sent'
   | 'payment_received'
-  | 'printing'
+  | 'processing' // Generic name - displays as configured (e.g., "printing", "preparing")
   | 'shipped'
   | 'delivered'
   | 'cancelled';
 
+/**
+ * Order line item - stores selected variant options as key-value pairs
+ */
 export interface OrderItem {
   productId: string;
   productName: string;
   sku: string;
-  size: string;
-  color: string;
-  material: string;
+  /** Selected variants stored as key-value pairs (e.g., { size: "Large", color: "Blue" }) */
+  variants: Record<string, string>;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -267,13 +283,15 @@ export interface ListResult<T> {
 // Cart Types (Client-side only)
 // ============================================
 
+/**
+ * Cart item - stores selected variant options as key-value pairs
+ */
 export interface CartItem {
   productId: string;
   productName: string;
   sku: string;
-  size: string;
-  color: string;
-  material: string;
+  /** Selected variants stored as key-value pairs (e.g., { size: "Large", color: "Blue" }) */
+  variants: Record<string, string>;
   quantity: number;
   unitPrice: number;
   image?: string;
@@ -283,4 +301,21 @@ export interface Cart {
   items: CartItem[];
   discountCode?: string;
   discountAmount: number;
+}
+
+// ============================================
+// Store Configuration Types
+// ============================================
+
+/**
+ * Store configuration loaded from environment variables
+ */
+export interface StoreConfig {
+  name: string;
+  orderPrefix: string;
+  currencySymbol: string;
+  shippingFlatRate: number; // in cents
+  freeShippingThreshold: number; // in cents, 0 = disabled
+  processingStatusName: string; // e.g., "printing", "preparing", "manufacturing"
+  adminEmail: string;
 }

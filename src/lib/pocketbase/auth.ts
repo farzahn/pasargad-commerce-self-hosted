@@ -62,11 +62,12 @@ export function isAuthenticated(): boolean {
 
 /**
  * Check if the current user is the admin
+ * Admin email is configured via ADMIN_EMAIL environment variable
  */
 export function isCurrentUserAdmin(): boolean {
   const user = getCurrentUser();
-  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@example.com';
-  return user?.email === adminEmail;
+  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || process.env.ADMIN_EMAIL || '';
+  return !!adminEmail && user?.email === adminEmail;
 }
 
 /**

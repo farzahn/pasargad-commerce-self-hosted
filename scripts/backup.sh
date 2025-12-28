@@ -1,5 +1,5 @@
 #!/bin/bash
-# Pasargad Prints - Backup Script
+# Self-Hosted E-Commerce Template - Backup Script
 # Run daily via cron: 0 2 * * * /path/to/backup.sh
 
 set -e

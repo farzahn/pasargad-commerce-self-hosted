@@ -211,11 +211,13 @@ export async function createOrder(data: {
 }): Promise<Order> {
   const pb = getPocketBaseClient();
 
-  // Generate order number: PP-YYYYMMDD-XXXX
+  // Generate order number: PREFIX-YYYYMMDD-XXXX
+  // Prefix is configurable via ORDER_PREFIX env var (default: ORD)
+  const orderPrefix = process.env.ORDER_PREFIX || 'ORD';
   const date = new Date();
   const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
   const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  const orderNumber = `PP-${dateStr}-${random}`;
+  const orderNumber = `${orderPrefix}-${dateStr}-${random}`;
 
   return pb.collection('orders').create({
     orderNumber,
@@ -247,8 +249,8 @@ export async function cancelOrder(
   const pb = getPocketBaseClient();
   const order = await pb.collection('orders').getOne(orderId);
 
-  // Only allow cancellation before printing
-  if (['printing', 'shipped', 'delivered'].includes(order.status)) {
+  // Only allow cancellation before processing starts
+  if (['processing', 'shipped', 'delivered'].includes(order.status)) {
     throw new Error('Order cannot be cancelled at this stage');
   }
 

@@ -21,9 +21,9 @@ const nextConfig: NextConfig = {
         port: '8090',
       },
       {
-        // PocketBase in production
+        // PocketBase in production (update with your domain)
         protocol: 'https',
-        hostname: 'api.pasargadprints.com',
+        hostname: 'api.yourdomain.com',
       },
     ],
     formats: ['image/avif', 'image/webp'],
