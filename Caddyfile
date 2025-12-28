@@ -1,0 +1,78 @@
+# Pasargad Prints - Caddy Reverse Proxy Configuration
+# Handles HTTPS automatically with local certificates
+
+{
+    # Use local certificates for development
+    local_certs
+
+    # Admin API (optional - for debugging)
+    admin off
+}
+
+# Main Application
+localhost {
+    reverse_proxy app:3000
+
+    # Enable compression
+    encode gzip zstd
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+}
+
+# PocketBase API & Admin
+api.localhost {
+    reverse_proxy pocketbase:8090
+
+    encode gzip zstd
+
+    header {
+        X-Content-Type-Options nosniff
+        -Server
+    }
+}
+
+# Umami Analytics Dashboard
+analytics.localhost {
+    reverse_proxy umami:3000
+
+    encode gzip zstd
+
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        -Server
+    }
+}
+
+# Production configuration (uncomment and modify for your domain)
+# pasargadprints.com, www.pasargadprints.com {
+#     reverse_proxy app:3000
+#     encode gzip zstd
+#
+#     header {
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+#         X-Content-Type-Options nosniff
+#         X-Frame-Options DENY
+#         X-XSS-Protection "1; mode=block"
+#         Referrer-Policy strict-origin-when-cross-origin
+#         Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.hcaptcha.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.pasargadprints.com https://*.hcaptcha.com; frame-src https://*.hcaptcha.com;"
+#         -Server
+#     }
+# }
+#
+# api.pasargadprints.com {
+#     reverse_proxy pocketbase:8090
+#     encode gzip zstd
+# }
+#
+# analytics.pasargadprints.com {
+#     reverse_proxy umami:3000
+#     encode gzip zstd
+# }

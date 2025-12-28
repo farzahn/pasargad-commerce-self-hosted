@@ -1,0 +1,147 @@
+# Pasargad Prints - Self-Hosted E-Commerce Platform
+# Docker Compose Configuration for Local Development
+
+version: '3.8'
+
+services:
+  # Caddy Reverse Proxy (handles HTTPS locally)
+  caddy:
+    image: caddy:2-alpine
+    container_name: pasargad-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+      - pocketbase
+      - umami
+    restart: unless-stopped
+    networks:
+      - pasargad-network
+
+  # Next.js Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pasargad-app
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL:-http://pocketbase:8090}
+      - NEXT_PUBLIC_UMAMI_URL=${PUBLIC_UMAMI_URL:-http://umami:3000}
+      - NEXT_PUBLIC_PHOTON_URL=${PHOTON_URL:-https://photon.komoot.io}
+      - REDIS_URL=redis://redis:6379
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM:-noreply@pasargadprints.com}
+      - NEXT_PUBLIC_HCAPTCHA_SITE_KEY=${HCAPTCHA_SITE_KEY}
+      - HCAPTCHA_SECRET_KEY=${HCAPTCHA_SECRET_KEY}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+      - SITE_PASSWORD=${SITE_PASSWORD}
+    depends_on:
+      - pocketbase
+      - redis
+    restart: unless-stopped
+    networks:
+      - pasargad-network
+
+  # PocketBase (Database + Auth + Storage)
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: pasargad-pocketbase
+    expose:
+      - "8090"
+    volumes:
+      - ./pb_data:/pb_data
+      - ./pb_public:/pb_public
+      - ./pb_migrations:/pb_migrations
+    environment:
+      - PB_ADMIN_EMAIL=${POCKETBASE_ADMIN_EMAIL:-admin@example.com}
+    restart: unless-stopped
+    command: serve --http=0.0.0.0:8090 --dir=/pb_data --publicDir=/pb_public --migrationsDir=/pb_migrations
+    networks:
+      - pasargad-network
+
+  # Redis (Rate Limiting & Session Caching)
+  redis:
+    image: redis:7-alpine
+    container_name: pasargad-redis
+    expose:
+      - "6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    networks:
+      - pasargad-network
+
+  # Umami Analytics
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    container_name: pasargad-umami
+    expose:
+      - "3000"
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD:-umami}@umami-db:5432/umami
+      DATABASE_TYPE: postgresql
+      APP_SECRET: ${UMAMI_APP_SECRET:-change-me-in-production}
+      DISABLE_TELEMETRY: 1
+    depends_on:
+      umami-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - pasargad-network
+
+  # Umami PostgreSQL Database
+  umami-db:
+    image: postgres:15-alpine
+    container_name: pasargad-umami-db
+    environment:
+      POSTGRES_DB: umami
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD:-umami}
+    volumes:
+      - umami_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami -d umami"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pasargad-network
+
+  # Cloudflare Tunnel (exposes local services to internet)
+  # Only enable when you need public access
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: pasargad-tunnel
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    restart: unless-stopped
+    depends_on:
+      - caddy
+    networks:
+      - pasargad-network
+    profiles:
+      - tunnel  # Only starts with: docker compose --profile tunnel up
+
+volumes:
+  caddy_data:
+  caddy_config:
+  redis_data:
+  umami_db_data:
+
+networks:
+  pasargad-network:
+    driver: bridge
