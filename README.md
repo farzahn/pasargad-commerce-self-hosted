@@ -60,8 +60,8 @@ A modern, 100% self-hosted e-commerce template built with Next.js 15, PocketBase
 ### 1. Clone and Configure
 
 ```bash
-git clone https://github.com/farzahn/SelfHosted.git
-cd SelfHosted
+git clone https://github.com/farzahn/pasargad-commerce-self-hosted.git
+cd pasargad-commerce-self-hosted
 
 # Copy and edit environment variables
 cp .env.example .env
