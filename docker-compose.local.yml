@@ -1,31 +1,52 @@
-# Production Docker Compose for Coolify Deployment
-# Coolify's Traefik handles reverse proxy, SSL, and domain routing
-# Use docker-compose.yml for local development (includes Caddy)
+# Self-Hosted E-Commerce Template
+# Docker Compose Configuration for Local Development
+# Customize container names by setting COMPOSE_PROJECT_NAME in .env
+
+version: '3.8'
 
 services:
+  # Caddy Reverse Proxy (handles HTTPS locally)
+  caddy:
+    image: caddy:2-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+      - pocketbase
+      - umami
+    restart: unless-stopped
+    networks:
+      - app-network
+
   # Next.js Application
-  # Domain: shop.cafemomiji.com
   app:
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL:-https://api.cafemomiji.com}
-        - NEXT_PUBLIC_SITE_URL=${PUBLIC_SITE_URL:-https://shop.cafemomiji.com}
+        - NEXT_PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL:-http://localhost:8090}
+        - NEXT_PUBLIC_SITE_URL=${PUBLIC_SITE_URL:-http://localhost:3000}
         - NEXT_PUBLIC_STORE_NAME=${STORE_NAME:-My Store}
         - NEXT_PUBLIC_STORE_DESCRIPTION=${STORE_DESCRIPTION:-Your online store}
         - NEXT_PUBLIC_ADMIN_EMAIL=${NEXT_PUBLIC_ADMIN_EMAIL:-}
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-app
     expose:
       - "3000"
     environment:
       - NODE_ENV=production
       - POCKETBASE_INTERNAL_URL=http://pocketbase:8090
-      - NEXT_PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL:-https://api.cafemomiji.com}
-      - NEXT_PUBLIC_UMAMI_URL=${PUBLIC_UMAMI_URL:-https://analytics.cafemomiji.com}
+      - NEXT_PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL:-http://localhost:8090}
+      - NEXT_PUBLIC_UMAMI_URL=${PUBLIC_UMAMI_URL:-http://umami:3000}
       - NEXT_PUBLIC_PHOTON_URL=${PHOTON_URL:-https://photon.komoot.io}
       - NEXT_PUBLIC_STORE_NAME=${STORE_NAME:-My Store}
       - NEXT_PUBLIC_STORE_DESCRIPTION=${STORE_DESCRIPTION:-Your online store for great products}
-      - NEXT_PUBLIC_SITE_URL=${PUBLIC_SITE_URL:-https://shop.cafemomiji.com}
+      - NEXT_PUBLIC_SITE_URL=${PUBLIC_SITE_URL:-http://localhost:3000}
       - REDIS_URL=redis://redis:6379
       - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
       - SMTP_PORT=${SMTP_PORT:-587}
@@ -51,14 +72,16 @@ services:
       - app-network
 
   # PocketBase (Database + Auth + Storage)
-  # Domain: api.cafemomiji.com
   pocketbase:
     image: ghcr.io/muchobien/pocketbase:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-pocketbase
+    ports:
+      - "8090:8090"
     expose:
       - "8090"
     volumes:
-      - pocketbase_data:/pb_data
-      - pocketbase_public:/pb_public
+      - ./pb_data:/pb_data
+      - ./pb_public:/pb_public
       - ./pb_migrations:/pb_migrations
     environment:
       - PB_ADMIN_EMAIL=${POCKETBASE_ADMIN_EMAIL:-admin@example.com}
@@ -68,9 +91,9 @@ services:
       - app-network
 
   # Redis (Rate Limiting & Session Caching)
-  # Internal only - no external domain
   redis:
     image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-redis
     expose:
       - "6379"
     volumes:
@@ -81,9 +104,9 @@ services:
       - app-network
 
   # Umami Analytics
-  # Domain: analytics.cafemomiji.com
   umami:
     image: ghcr.io/umami-software/umami:postgresql-latest
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-umami
     expose:
       - "3000"
     environment:
@@ -99,9 +122,9 @@ services:
       - app-network
 
   # Umami PostgreSQL Database
-  # Internal only - no external domain
   umami-db:
     image: postgres:15-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-umami-db
     environment:
       POSTGRES_DB: umami
       POSTGRES_USER: umami
@@ -117,9 +140,25 @@ services:
     networks:
       - app-network
 
+  # Cloudflare Tunnel (exposes local services to internet)
+  # Only enable when you need public access
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-tunnel
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    restart: unless-stopped
+    depends_on:
+      - caddy
+    networks:
+      - app-network
+    profiles:
+      - tunnel  # Only starts with: docker compose --profile tunnel up
+
 volumes:
-  pocketbase_data:
-  pocketbase_public:
+  caddy_data:
+  caddy_config:
   redis_data:
   umami_db_data:
 
