@@ -37,6 +37,19 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
+# Build arguments for NEXT_PUBLIC_* variables (baked into JS bundle)
+ARG NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
+ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
+ARG NEXT_PUBLIC_STORE_NAME="My Store"
+ARG NEXT_PUBLIC_STORE_DESCRIPTION="Your online store"
+ARG NEXT_PUBLIC_ADMIN_EMAIL=""
+
+ENV NEXT_PUBLIC_POCKETBASE_URL=$NEXT_PUBLIC_POCKETBASE_URL
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_STORE_NAME=$NEXT_PUBLIC_STORE_NAME
+ENV NEXT_PUBLIC_STORE_DESCRIPTION=$NEXT_PUBLIC_STORE_DESCRIPTION
+ENV NEXT_PUBLIC_ADMIN_EMAIL=$NEXT_PUBLIC_ADMIN_EMAIL
+
 # Build the application
 RUN \
   if [ -f yarn.lock ]; then yarn build; \
@@ -59,8 +72,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy built assets from builder
-COPY --from=builder /app/public ./public
+# Copy public assets if they exist
+COPY --from=builder /app/public* ./public/
 
 # Set correct permissions for prerender cache
 RUN mkdir .next

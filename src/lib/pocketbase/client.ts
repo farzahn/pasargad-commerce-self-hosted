@@ -2,14 +2,20 @@
  * PocketBase Client Configuration
  *
  * This module provides a singleton PocketBase client instance for use throughout
- * the application. It handles both server-side and client-side usage.
+ * the application. It handles both server-side and client-side usage with proper
+ * auth store management.
  */
 
 import PocketBase from 'pocketbase';
 import type { TypedPocketBase } from '@/types/pocketbase';
 
-// PocketBase URL from environment
-const POCKETBASE_URL = process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://localhost:8090';
+// PocketBase URLs
+// Server-side: Use internal Docker network URL (POCKETBASE_INTERNAL_URL) or fallback to public URL
+// Client-side: Always use public URL (accessible from browser)
+const getServerUrl = () => process.env.POCKETBASE_INTERNAL_URL || process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://localhost:8090';
+const getClientUrl = () => process.env.NEXT_PUBLIC_POCKETBASE_URL || 'http://localhost:8090';
+
+const POCKETBASE_URL = typeof window === 'undefined' ? getServerUrl() : getClientUrl();
 
 /**
  * Creates a new PocketBase client instance
@@ -35,7 +41,7 @@ export function getPocketBaseClient(): TypedPocketBase {
   if (!clientInstance) {
     clientInstance = createPocketBaseClient();
 
-    // Load auth state from localStorage
+    // Load auth state from cookie
     clientInstance.authStore.loadFromCookie(document.cookie);
 
     // Save auth state to cookie on change
@@ -62,16 +68,58 @@ export function createAuthenticatedClient(token: string): TypedPocketBase {
 }
 
 /**
- * Check if the current user is the admin
- * Admin email is configured via ADMIN_EMAIL environment variable
+ * Get the PocketBase URL
  */
-export function isAdmin(pb: TypedPocketBase): boolean {
-  const adminEmail = process.env.ADMIN_EMAIL || '';
-  return !!adminEmail && pb.authStore.isValid && pb.authStore.record?.email === adminEmail;
+export function getPocketBaseUrl(): string {
+  return POCKETBASE_URL;
+}
+
+// Helper to get user record from authStore (handles SDK version differences)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getAuthRecord(pb: TypedPocketBase): any {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (pb.authStore as any).record || pb.authStore.model;
 }
 
 /**
- * Get the file URL for a PocketBase record
+ * Check if the current user has admin role
+ */
+export function isAdmin(pb: TypedPocketBase): boolean {
+  const record = getAuthRecord(pb);
+  if (!pb.authStore.isValid || !record) {
+    return false;
+  }
+  return record.role === 'admin';
+}
+
+/**
+ * Check if the current user has staff role
+ */
+export function isStaff(pb: TypedPocketBase): boolean {
+  const record = getAuthRecord(pb);
+  if (!pb.authStore.isValid || !record) {
+    return false;
+  }
+  return record.role === 'staff' || record.role === 'admin';
+}
+
+/**
+ * Check if the current user is blocked
+ */
+export function isBlocked(pb: TypedPocketBase): boolean {
+  const record = getAuthRecord(pb);
+  if (!pb.authStore.isValid || !record) {
+    return false;
+  }
+  return record.isBlocked === true;
+}
+
+/**
+ * Build a file URL from raw parameters (without a record object)
+ * Use this when you only have IDs, not the full record
+ *
+ * @deprecated Prefer using getFileUrl from './files' with a record object
+ * @see getFileUrl in './files' for the recommended approach
  */
 export function getFileUrl(
   collectionId: string,
@@ -82,6 +130,12 @@ export function getFileUrl(
   const baseUrl = `${POCKETBASE_URL}/api/files/${collectionId}/${recordId}/${filename}`;
   return thumb ? `${baseUrl}?thumb=${thumb}` : baseUrl;
 }
+
+/**
+ * Alias for getFileUrl - builds file URL from raw parameters
+ * @deprecated Prefer using buildFileUrl from './files' instead
+ */
+export const buildFileUrlFromParams = getFileUrl;
 
 // Default export for convenience
 export default getPocketBaseClient;

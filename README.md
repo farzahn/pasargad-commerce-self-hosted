@@ -60,8 +60,8 @@ A modern, 100% self-hosted e-commerce template built with Next.js 15, PocketBase
 ### 1. Clone and Configure
 
 ```bash
-git clone https://github.com/farzahn/pasargad-commerce-self-hosted.git
-cd pasargad-commerce-self-hosted
+git clone https://github.com/farzahn/SelfHosted.git
+cd SelfHosted
 
 # Copy and edit environment variables
 cp .env.example .env
@@ -102,6 +102,51 @@ npm run docker:prod
 - **App**: https://localhost
 - **PocketBase Admin**: https://api.localhost/_/
 - **Umami Analytics**: https://analytics.localhost
+
+### 5. First-Run Setup (Required)
+
+On first launch, you need to configure PocketBase and Google OAuth:
+
+#### Step 1: Create PocketBase Admin Account
+
+1. Open **https://api.localhost/_/** (or http://localhost:8090/_/)
+2. You'll see the "Create Admin Account" form
+3. Enter your email and a secure password
+4. Click "Create and Login"
+
+> **Note:** The database schema (collections) is automatically created from the included migrations.
+
+#### Step 2: Configure Google OAuth
+
+Google OAuth is the only authentication method for customers. To enable it:
+
+1. **Create Google OAuth Credentials:**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+   - Create a new project (or select existing)
+   - Go to "APIs & Services" → "Credentials"
+   - Click "Create Credentials" → "OAuth client ID"
+   - Select "Web application"
+   - Add authorized redirect URI: `https://api.localhost/api/oauth2-redirect` (or your production domain)
+   - Copy the **Client ID** and **Client Secret**
+
+2. **Configure in PocketBase:**
+   - Open PocketBase Admin: https://api.localhost/_/
+   - Go to **Settings** → **Auth providers**
+   - Find **Google** and click the toggle to enable
+   - Paste your **Client ID** and **Client Secret**
+   - Click "Save changes"
+
+3. **Test Login:**
+   - Visit your store at https://localhost
+   - Click "Sign In" and verify Google OAuth works
+
+#### Step 3: Set Admin Access (Optional)
+
+To grant yourself admin dashboard access:
+
+1. Edit `.env` and set `NEXT_PUBLIC_ADMIN_EMAIL` to your Google account email
+2. Restart the app: `npm run docker:down && npm run docker:dev`
+3. Log in with Google - you'll now see the Admin link in the header
 
 ## Customization Guide
 
@@ -159,19 +204,27 @@ SHIPPING_REGION=US              # For address validation
 │   │   └── pdf/           # Invoice generation
 │   ├── hooks/             # Custom React hooks
 │   └── types/             # TypeScript definitions
-├── pb_data/               # PocketBase SQLite + files
+├── pb_migrations/         # PocketBase database schema (auto-applied)
+├── pb_data/               # PocketBase SQLite + files (gitignored)
 └── scripts/
-    └── backup.sh          # Automated backup script
+    ├── backup.sh          # Automated backup script
+    ├── setup-collections.js  # Manual collection setup (optional)
+    └── seed-products.js   # Sample product data (optional)
 ```
 
 ## Environment Variables
 
-### Required
+### Required for Basic Operation
 
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `STORE_NAME` | Your store name | My Store |
-| `ADMIN_EMAIL` | Admin email address | admin@example.com |
+| `NEXT_PUBLIC_ADMIN_EMAIL` | Email that gets admin access | you@gmail.com |
+
+### Required for Email Notifications
+
+| Variable | Description | Example |
+|----------|-------------|---------|
 | `SMTP_HOST` | SMTP server | smtp.gmail.com |
 | `SMTP_USER` | SMTP username | you@gmail.com |
 | `SMTP_PASS` | SMTP password/app password | your-app-password |

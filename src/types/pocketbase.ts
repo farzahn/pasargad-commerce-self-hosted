@@ -2,7 +2,7 @@
  * PocketBase Type Definitions
  *
  * Type-safe interfaces for all PocketBase collections.
- * This is a generic e-commerce template - customize variants and fields as needed.
+ * Collections: users, categories, products, orders, discounts, messages, addresses, wishlists, reviews, settings
  */
 
 import PocketBase, { RecordService } from 'pocketbase';
@@ -23,6 +23,46 @@ export interface BaseRecord {
 }
 
 // ============================================
+// User Types (Auth Collection)
+// ============================================
+
+export type UserRole = 'customer' | 'admin' | 'staff';
+
+export interface User extends BaseRecord {
+  email: string;
+  emailVisibility: boolean;
+  verified: boolean;
+  username: string;
+  name: string;
+  avatar: string;
+  phone: string;
+  role: UserRole;
+  /** Direct admin flag (alternative to role) */
+  isAdmin?: boolean;
+  isBlocked: boolean;
+  adminNotes?: string;
+  lastLoginAt?: string;
+}
+
+// ============================================
+// Category Types
+// ============================================
+
+export interface Category extends BaseRecord {
+  name: string;
+  slug: string;
+  description: string;
+  image: string;
+  parentId: string;
+  order: number;
+
+  // Expanded relations
+  expand?: {
+    parentId?: Category;
+  };
+}
+
+// ============================================
 // Product Variant Types
 // ============================================
 
@@ -33,22 +73,19 @@ export interface BaseRecord {
 export interface VariantOption {
   name: string;
   priceModifier: number;
-  /** Optional metadata for the variant (e.g., hex for colors, dimensions for sizes) */
+  /** Optional hex color code (for color variants) */
+  hex?: string;
+  /** Optional stock for this variant */
+  stock?: number;
+  /** Optional metadata for the variant (e.g., dimensions for sizes) */
   metadata?: Record<string, string | number>;
 }
 
-// Convenience aliases for common variant types
-export type SizeVariant = VariantOption;
-export type ColorVariant = VariantOption & { hex?: string };
-
-export type ProductStatus = 'active' | 'inactive';
-export type ProductBadge = 'new' | 'sale' | '';
+export type ProductStatus = 'active' | 'inactive' | 'draft' | 'archived';
+export type ProductBadge = 'new' | 'sale' | 'bestseller' | '';
 
 /**
- * Product interface - customize variants based on your needs
- *
- * Default variants: sizes, colors, options (generic)
- * You can rename or add more variant fields in PocketBase admin
+ * Product interface
  */
 export interface Product extends BaseRecord {
   name: string;
@@ -56,88 +93,27 @@ export interface Product extends BaseRecord {
   description: string;
   basePrice: number;
   sku: string;
-  category: string; // Relation ID to categories
+  /** Category relation ID */
+  category: string;
+  /** @deprecated Use `category` instead */
+  categoryId?: string;
   tags: string[];
-  images: string[]; // File field names
-
-  // Default variant fields - customize as needed
+  images: string[];
+  /** Generic variants - sizes, colors, etc. */
   sizes: VariantOption[];
   colors: VariantOption[];
-  /** Generic options field - use for any additional variants (material, style, etc.) */
   options: VariantOption[];
-
+  /** @deprecated Use sizes, colors, options instead */
+  variants?: VariantOption[];
   status: ProductStatus;
   isFeatured: boolean;
   badge: ProductBadge;
+  stock?: number;
 
-  // Expanded relations (when using expand)
+  // Expanded relations
   expand?: {
     category?: Category;
-  };
-}
-
-// ============================================
-// Category Types
-// ============================================
-
-export interface Category extends BaseRecord {
-  name: string;
-  slug: string;
-  parent: string | null; // Self-referential relation
-  order: number;
-
-  // Expanded relations
-  expand?: {
-    parent?: Category;
-  };
-}
-
-// ============================================
-// User Types (Auth Collection)
-// ============================================
-
-export interface User extends BaseRecord {
-  email: string;
-  emailVisibility: boolean;
-  verified: boolean;
-  name: string;
-  avatar: string; // File field name
-  isBlocked: boolean;
-  adminNotes: string;
-}
-
-// ============================================
-// Address Types
-// ============================================
-
-export interface Address extends BaseRecord {
-  user: string; // Relation ID to users
-  name: string;
-  street: string;
-  apt: string;
-  city: string;
-  state: string;
-  zip: string;
-  isDefault: boolean;
-
-  // Expanded relations
-  expand?: {
-    user?: User;
-  };
-}
-
-// ============================================
-// Wishlist Types
-// ============================================
-
-export interface Wishlist extends BaseRecord {
-  user: string; // Relation ID to users
-  product: string; // Relation ID to products
-
-  // Expanded relations
-  expand?: {
-    user?: User;
-    product?: Product;
+    categoryId?: Category;
   };
 }
 
@@ -145,29 +121,27 @@ export interface Wishlist extends BaseRecord {
 // Order Types
 // ============================================
 
-/**
- * Order status - customize based on your workflow
- * Default: pending_review -> invoice_sent -> payment_received -> processing -> shipped -> delivered
- * The 'processing' status can be renamed via PROCESSING_STATUS_NAME env var
- */
 export type OrderStatus =
   | 'pending_review'
   | 'invoice_sent'
   | 'payment_received'
-  | 'processing' // Generic name - displays as configured (e.g., "printing", "preparing")
+  | 'processing'
   | 'shipped'
   | 'delivered'
   | 'cancelled';
 
 /**
- * Order line item - stores selected variant options as key-value pairs
+ * Order line item - stores product details and selected variants
  */
 export interface OrderItem {
   productId: string;
   productName: string;
+  productImage?: string;
   sku: string;
-  /** Selected variants stored as key-value pairs (e.g., { size: "Large", color: "Blue" }) */
-  variants: Record<string, string>;
+  /** Selected variant options */
+  variants?: Record<string, string>;
+  /** @deprecated Use variants instead */
+  variant?: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -180,12 +154,14 @@ export interface ShippingAddress {
   city: string;
   state: string;
   zip: string;
+  country: string;
+  phone?: string;
 }
 
 export interface TrackingInfo {
   carrier: string;
   number: string;
-  url: string;
+  url?: string;
 }
 
 export interface StatusHistoryEntry {
@@ -196,7 +172,8 @@ export interface StatusHistoryEntry {
 
 export interface Order extends BaseRecord {
   orderNumber: string;
-  user: string; // Relation ID to users
+  user?: string;
+  userId?: string;
   customerEmail: string;
   customerName: string;
   items: OrderItem[];
@@ -207,17 +184,19 @@ export interface Order extends BaseRecord {
   discountAmount: number;
   total: number;
   status: OrderStatus;
-  invoiceSentAt: string;
-  paymentDueAt: string;
   tracking: TrackingInfo | null;
-  cancelledAt: string;
-  cancellationReason: string;
-  adminNotes: string;
   statusHistory: StatusHistoryEntry[];
+  notes?: string;
+  adminNotes?: string;
+  invoiceSentAt?: string;
+  paymentDueAt?: string;
+  cancelledAt?: string;
+  cancellationReason?: string;
 
   // Expanded relations
   expand?: {
     user?: User;
+    userId?: User;
   };
 }
 
@@ -239,16 +218,88 @@ export interface Discount extends BaseRecord {
 }
 
 // ============================================
-// Contact Message Types
+// Message Types (Contact Messages)
 // ============================================
 
-export interface ContactMessage extends BaseRecord {
+export interface Message extends BaseRecord {
   name: string;
   email: string;
+  phone: string;
   subject: string;
   message: string;
   isRead: boolean;
   isArchived: boolean;
+}
+
+// Alias for compatibility
+export type ContactMessage = Message;
+
+// ============================================
+// Address Types
+// ============================================
+
+export interface Address extends BaseRecord {
+  userId: string;
+  label: string;
+  name: string;
+  street: string;
+  apt: string;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone: string;
+  isDefault: boolean;
+
+  // Expanded relations
+  expand?: {
+    userId?: User;
+  };
+}
+
+// ============================================
+// Wishlist Types
+// ============================================
+
+export interface Wishlist extends BaseRecord {
+  userId: string;
+  productId: string;
+
+  // Expanded relations
+  expand?: {
+    userId?: User;
+    productId?: Product;
+  };
+}
+
+// ============================================
+// Review Types
+// ============================================
+
+export interface Review extends BaseRecord {
+  userId: string;
+  productId: string;
+  rating: number;
+  title: string;
+  comment: string;
+  isVerifiedPurchase: boolean;
+  isApproved: boolean;
+
+  // Expanded relations
+  expand?: {
+    userId?: User;
+    productId?: Product;
+  };
+}
+
+// ============================================
+// Settings Types
+// ============================================
+
+export interface Setting extends BaseRecord {
+  key: string;
+  value: string;
+  description: string;
 }
 
 // ============================================
@@ -256,14 +307,16 @@ export interface ContactMessage extends BaseRecord {
 // ============================================
 
 export interface TypedPocketBase extends PocketBase {
-  collection(idOrName: 'products'): RecordService<Product>;
-  collection(idOrName: 'categories'): RecordService<Category>;
   collection(idOrName: 'users'): RecordService<User>;
-  collection(idOrName: 'addresses'): RecordService<Address>;
-  collection(idOrName: 'wishlist'): RecordService<Wishlist>;
+  collection(idOrName: 'categories'): RecordService<Category>;
+  collection(idOrName: 'products'): RecordService<Product>;
   collection(idOrName: 'orders'): RecordService<Order>;
   collection(idOrName: 'discounts'): RecordService<Discount>;
-  collection(idOrName: 'contact_messages'): RecordService<ContactMessage>;
+  collection(idOrName: 'messages'): RecordService<Message>;
+  collection(idOrName: 'addresses'): RecordService<Address>;
+  collection(idOrName: 'wishlists'): RecordService<Wishlist>;
+  collection(idOrName: 'reviews'): RecordService<Review>;
+  collection(idOrName: 'settings'): RecordService<Setting>;
   collection(idOrName: string): RecordService;
 }
 
@@ -284,17 +337,19 @@ export interface ListResult<T> {
 // ============================================
 
 /**
- * Cart item - stores selected variant options as key-value pairs
+ * Cart item - stores product details and selected variants (client-side only)
  */
 export interface CartItem {
   productId: string;
   productName: string;
-  sku: string;
-  /** Selected variants stored as key-value pairs (e.g., { size: "Large", color: "Blue" }) */
-  variants: Record<string, string>;
+  productImage?: string;
+  sku?: string;
+  /** Selected variant options as key-value pairs */
+  variants?: Record<string, string>;
+  /** @deprecated Use variants instead */
+  variant?: string;
   quantity: number;
   unitPrice: number;
-  image?: string;
 }
 
 export interface Cart {
@@ -304,18 +359,45 @@ export interface Cart {
 }
 
 // ============================================
-// Store Configuration Types
+// Auth Types (Google OAuth Only)
 // ============================================
 
 /**
- * Store configuration loaded from environment variables
+ * @deprecated Not used - Google OAuth is the only authentication method.
+ * Kept for backward compatibility.
  */
+export interface AuthResponse {
+  token: string;
+  record: User;
+  /** Alias for record */
+  user?: User;
+}
+
+export interface OAuthMeta {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string;
+  accessToken: string;
+  refreshToken?: string;
+  expiry?: string;
+  rawUser?: Record<string, unknown>;
+}
+
+export interface OAuthResponse extends AuthResponse {
+  meta?: OAuthMeta;
+}
+
+// ============================================
+// Store Configuration Types
+// ============================================
+
 export interface StoreConfig {
   name: string;
   orderPrefix: string;
   currencySymbol: string;
-  shippingFlatRate: number; // in cents
-  freeShippingThreshold: number; // in cents, 0 = disabled
-  processingStatusName: string; // e.g., "printing", "preparing", "manufacturing"
+  shippingFlatRate: number;
+  freeShippingThreshold: number;
+  processingStatusName: string;
   adminEmail: string;
 }

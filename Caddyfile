@@ -51,30 +51,41 @@ analytics.localhost {
     }
 }
 
-# Production configuration (uncomment and modify for your domain)
-# Replace "yourdomain.com" with your actual domain
-#
-# yourdomain.com, www.yourdomain.com {
-#     reverse_proxy app:3000
-#     encode gzip zstd
-#
-#     header {
-#         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-#         X-Content-Type-Options nosniff
-#         X-Frame-Options DENY
-#         X-XSS-Protection "1; mode=block"
-#         Referrer-Policy strict-origin-when-cross-origin
-#         Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.hcaptcha.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.yourdomain.com https://*.hcaptcha.com; frame-src https://*.hcaptcha.com;"
-#         -Server
-#     }
-# }
-#
-# api.yourdomain.com {
-#     reverse_proxy pocketbase:8090
-#     encode gzip zstd
-# }
-#
-# analytics.yourdomain.com {
-#     reverse_proxy umami:3000
-#     encode gzip zstd
-# }
+# Production configuration for yourdomain.com
+yourdomain.com, www.yourdomain.com {
+    reverse_proxy app:3000
+    encode gzip zstd
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy strict-origin-when-cross-origin
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.hcaptcha.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://api.yourdomain.com https://*.hcaptcha.com; frame-src https://*.hcaptcha.com;"
+        -Server
+    }
+}
+
+api.yourdomain.com {
+    reverse_proxy pocketbase:8090
+    encode gzip zstd
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options nosniff
+        -Server
+    }
+}
+
+analytics.yourdomain.com {
+    reverse_proxy umami:3000
+    encode gzip zstd
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        -Server
+    }
+}

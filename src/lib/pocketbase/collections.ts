@@ -1,21 +1,25 @@
 /**
  * PocketBase Collection Helpers
  *
- * Type-safe functions for interacting with PocketBase collections
+ * Type-safe functions for interacting with PocketBase collections.
+ * Collections: products, categories, orders, discounts, messages, addresses, wishlists, reviews, settings
  */
 
-import { getPocketBaseClient, getFileUrl } from './client';
+import { getPocketBaseClient } from './client';
+import { getFileUrl } from './files';
 import type {
   Product,
   Category,
-  User,
-  Address,
   Order,
-  Discount,
-  ContactMessage,
-  ListResult,
   OrderItem,
   ShippingAddress,
+  Discount,
+  Message,
+  Address,
+  Wishlist,
+  Review,
+  Setting,
+  ListResult,
 } from '@/types/pocketbase';
 
 // ============================================
@@ -34,11 +38,23 @@ export async function getProducts(options?: {
     options?.page || 1,
     options?.perPage || 20,
     {
-      filter: options?.filter || "status = 'active'",
-      sort: options?.sort || '-created',
-      expand: options?.expand || 'category',
+      filter: options?.filter || "status='active'",
+      sort: options?.sort || '-@rowid',
+      // Only expand if categoryId is a valid relation
+      ...(options?.expand ? { expand: options.expand } : {}),
     }
   );
+}
+
+export async function getProductById(id: string): Promise<Product | null> {
+  const pb = getPocketBaseClient();
+  try {
+    return await pb.collection('products').getOne(id, {
+      expand: 'categoryId',
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
@@ -46,7 +62,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   try {
     return await pb.collection('products').getFirstListItem(
       `slug = "${slug}"`,
-      { expand: 'category' }
+      { expand: 'categoryId' }
     );
   } catch {
     return null;
@@ -56,13 +72,55 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
 export async function getFeaturedProducts(limit = 8): Promise<Product[]> {
   const pb = getPocketBaseClient();
   const result = await pb.collection('products').getList(1, limit, {
-    filter: "status = 'active' && isFeatured = true",
-    sort: '-created',
-    expand: 'category',
+    filter: "status='active' && isFeatured=true",
+    sort: '-@rowid',
+    expand: 'categoryId',
   });
   return result.items;
 }
 
+export async function getProductsByCategory(
+  categoryId: string,
+  options?: {
+    page?: number;
+    perPage?: number;
+    sort?: string;
+  }
+): Promise<ListResult<Product>> {
+  const pb = getPocketBaseClient();
+  return pb.collection('products').getList(
+    options?.page || 1,
+    options?.perPage || 20,
+    {
+      filter: `status='active' && categoryId="${categoryId}"`,
+      sort: options?.sort || '-@rowid',
+      expand: 'categoryId',
+    }
+  );
+}
+
+export async function searchProducts(
+  query: string,
+  options?: {
+    page?: number;
+    perPage?: number;
+  }
+): Promise<ListResult<Product>> {
+  const pb = getPocketBaseClient();
+  return pb.collection('products').getList(
+    options?.page || 1,
+    options?.perPage || 20,
+    {
+      filter: `status='active' && (name ~ "${query}" || description ~ "${query}" || sku ~ "${query}")`,
+      sort: '-@rowid',
+      expand: 'categoryId',
+    }
+  );
+}
+
+/**
+ * Get the URL for a product image
+ */
 export function getProductImageUrl(
   product: Product,
   index = 0,
@@ -71,12 +129,13 @@ export function getProductImageUrl(
   if (!product.images || product.images.length === 0) {
     return '/placeholder-product.png';
   }
-  return getFileUrl(
-    product.collectionId,
-    product.id,
-    product.images[index],
-    thumb
-  );
+
+  const filename = product.images[index];
+  if (!filename) {
+    return '/placeholder-product.png';
+  }
+
+  return getFileUrl(product, filename, thumb ? { thumb } : undefined);
 }
 
 // ============================================
@@ -87,75 +146,50 @@ export async function getCategories(): Promise<Category[]> {
   const pb = getPocketBaseClient();
   const result = await pb.collection('categories').getFullList({
     sort: 'order',
-    expand: 'parent',
+    expand: 'parentId',
   });
   return result;
+}
+
+export async function getCategoryById(id: string): Promise<Category | null> {
+  const pb = getPocketBaseClient();
+  try {
+    return await pb.collection('categories').getOne(id, {
+      expand: 'parentId',
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
   const pb = getPocketBaseClient();
   try {
     return await pb.collection('categories').getFirstListItem(
-      `slug = "${slug}"`
+      `slug = "${slug}"`,
+      { expand: 'parentId' }
     );
   } catch {
     return null;
   }
 }
 
-// ============================================
-// Addresses
-// ============================================
-
-export async function getUserAddresses(userId: string): Promise<Address[]> {
+export async function getRootCategories(): Promise<Category[]> {
   const pb = getPocketBaseClient();
-  const result = await pb.collection('addresses').getFullList({
-    filter: `user = "${userId}"`,
-    sort: '-isDefault,-created',
+  const result = await pb.collection('categories').getFullList({
+    filter: 'parentId = ""',
+    sort: 'order',
   });
   return result;
 }
 
-export async function createAddress(
-  userId: string,
-  data: Omit<Address, 'id' | 'created' | 'updated' | 'collectionId' | 'collectionName' | 'user'>
-): Promise<Address> {
+export async function getSubcategories(parentId: string): Promise<Category[]> {
   const pb = getPocketBaseClient();
-  return pb.collection('addresses').create({
-    ...data,
-    user: userId,
+  const result = await pb.collection('categories').getFullList({
+    filter: `parentId = "${parentId}"`,
+    sort: 'order',
   });
-}
-
-export async function updateAddress(
-  id: string,
-  data: Partial<Address>
-): Promise<Address> {
-  const pb = getPocketBaseClient();
-  return pb.collection('addresses').update(id, data);
-}
-
-export async function deleteAddress(id: string): Promise<void> {
-  const pb = getPocketBaseClient();
-  await pb.collection('addresses').delete(id);
-}
-
-export async function setDefaultAddress(
-  userId: string,
-  addressId: string
-): Promise<void> {
-  const pb = getPocketBaseClient();
-
-  // Remove default from all other addresses
-  const addresses = await getUserAddresses(userId);
-  for (const addr of addresses) {
-    if (addr.isDefault && addr.id !== addressId) {
-      await pb.collection('addresses').update(addr.id, { isDefault: false });
-    }
-  }
-
-  // Set the new default
-  await pb.collection('addresses').update(addressId, { isDefault: true });
+  return result;
 }
 
 // ============================================
@@ -171,8 +205,8 @@ export async function getUserOrders(
     options?.page || 1,
     options?.perPage || 10,
     {
-      filter: `user = "${userId}"`,
-      sort: '-created',
+      filter: `userId = "${userId}"`,
+      sort: '-@rowid',
     }
   );
 }
@@ -211,23 +245,21 @@ export async function createOrder(data: {
 }): Promise<Order> {
   const pb = getPocketBaseClient();
 
-  // Generate order number: PREFIX-YYYYMMDD-XXXX
-  // Prefix is configurable via ORDER_PREFIX env var (default: ORD)
-  const orderPrefix = process.env.ORDER_PREFIX || 'ORD';
+  // Generate order number: ORD-YYYYMMDD-XXXX
   const date = new Date();
   const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
   const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  const orderNumber = `${orderPrefix}-${dateStr}-${random}`;
+  const orderNumber = `ORD-${dateStr}-${random}`;
 
   return pb.collection('orders').create({
     orderNumber,
-    user: data.userId,
+    userId: data.userId,
     customerEmail: data.customerEmail,
     customerName: data.customerName,
     items: data.items,
     shippingAddress: data.shippingAddress,
     subtotal: data.subtotal,
-    shippingCost: data.shippingCost,
+    shippingCost: data.shippingCost || 1, // PocketBase requires non-zero; use 1 cent for free shipping
     discountCode: data.discountCode || '',
     discountAmount: data.discountAmount,
     total: data.total,
@@ -249,8 +281,8 @@ export async function cancelOrder(
   const pb = getPocketBaseClient();
   const order = await pb.collection('orders').getOne(orderId);
 
-  // Only allow cancellation before processing starts
-  if (['processing', 'shipped', 'delivered'].includes(order.status)) {
+  // Only allow cancellation before shipped
+  if (['shipped', 'delivered'].includes(order.status)) {
     throw new Error('Order cannot be cancelled at this stage');
   }
 
@@ -265,8 +297,6 @@ export async function cancelOrder(
 
   return pb.collection('orders').update(orderId, {
     status: 'cancelled',
-    cancelledAt: new Date().toISOString(),
-    cancellationReason: reason,
     statusHistory,
   });
 }
@@ -316,55 +346,162 @@ export function calculateDiscount(
   return Math.min(discount.value, subtotal);
 }
 
+export async function incrementDiscountUsage(discountId: string): Promise<void> {
+  const pb = getPocketBaseClient();
+  const discount = await pb.collection('discounts').getOne(discountId);
+  await pb.collection('discounts').update(discountId, {
+    usedCount: discount.usedCount + 1,
+  });
+}
+
 // ============================================
-// Contact Messages
+// Messages (Contact)
 // ============================================
 
-export async function createContactMessage(data: {
+export async function createMessage(data: {
   name: string;
   email: string;
+  phone?: string;
   subject: string;
   message: string;
-}): Promise<ContactMessage> {
+}): Promise<Message> {
   const pb = getPocketBaseClient();
-  return pb.collection('contact_messages').create({
+  return pb.collection('messages').create({
     ...data,
+    phone: data.phone || '',
     isRead: false,
     isArchived: false,
   });
 }
 
+export async function getMessages(options?: {
+  page?: number;
+  perPage?: number;
+  filter?: string;
+}): Promise<ListResult<Message>> {
+  const pb = getPocketBaseClient();
+  return pb.collection('messages').getList(
+    options?.page || 1,
+    options?.perPage || 20,
+    {
+      filter: options?.filter || 'isArchived = false',
+      sort: '-@rowid',
+    }
+  );
+}
+
+export async function markMessageAsRead(id: string): Promise<Message> {
+  const pb = getPocketBaseClient();
+  return pb.collection('messages').update(id, { isRead: true });
+}
+
+export async function archiveMessage(id: string): Promise<Message> {
+  const pb = getPocketBaseClient();
+  return pb.collection('messages').update(id, { isArchived: true });
+}
+
 // ============================================
-// Wishlist
+// Addresses
 // ============================================
 
-export async function getUserWishlist(userId: string): Promise<Product[]> {
+export async function getUserAddresses(userId: string): Promise<Address[]> {
   const pb = getPocketBaseClient();
-  const result = await pb.collection('wishlist').getFullList({
-    filter: `user = "${userId}"`,
-    expand: 'product',
+  const result = await pb.collection('addresses').getFullList({
+    filter: `userId = "${userId}"`,
+    sort: '-isDefault,-@rowid',
   });
-  return result.map((item) => item.expand?.product as Product).filter(Boolean);
+  return result;
+}
+
+export async function getAddressById(id: string): Promise<Address | null> {
+  const pb = getPocketBaseClient();
+  try {
+    return await pb.collection('addresses').getOne(id);
+  } catch {
+    return null;
+  }
+}
+
+export async function createAddress(
+  userId: string,
+  data: Omit<Address, 'id' | 'created' | 'updated' | 'collectionId' | 'collectionName' | 'userId'>
+): Promise<Address> {
+  const pb = getPocketBaseClient();
+  return pb.collection('addresses').create({
+    ...data,
+    userId,
+  });
+}
+
+export async function updateAddress(
+  id: string,
+  data: Partial<Address>
+): Promise<Address> {
+  const pb = getPocketBaseClient();
+  return pb.collection('addresses').update(id, data);
+}
+
+export async function deleteAddress(id: string): Promise<void> {
+  const pb = getPocketBaseClient();
+  await pb.collection('addresses').delete(id);
+}
+
+export async function setDefaultAddress(
+  userId: string,
+  addressId: string
+): Promise<void> {
+  const pb = getPocketBaseClient();
+
+  // Remove default from all other addresses
+  const addresses = await getUserAddresses(userId);
+  for (const addr of addresses) {
+    if (addr.isDefault && addr.id !== addressId) {
+      await pb.collection('addresses').update(addr.id, { isDefault: false });
+    }
+  }
+
+  // Set the new default
+  await pb.collection('addresses').update(addressId, { isDefault: true });
+}
+
+// ============================================
+// Wishlists
+// ============================================
+
+export async function getUserWishlist(userId: string): Promise<Wishlist[]> {
+  const pb = getPocketBaseClient();
+  const result = await pb.collection('wishlists').getFullList({
+    filter: `userId = "${userId}"`,
+    expand: 'productId',
+    sort: '-@rowid',
+  });
+  return result;
+}
+
+export async function getWishlistProducts(userId: string): Promise<Product[]> {
+  const wishlists = await getUserWishlist(userId);
+  return wishlists
+    .map((item) => item.expand?.productId as Product)
+    .filter(Boolean);
 }
 
 export async function addToWishlist(
   userId: string,
   productId: string
-): Promise<void> {
+): Promise<Wishlist> {
   const pb = getPocketBaseClient();
 
   // Check if already in wishlist
   try {
-    await pb.collection('wishlist').getFirstListItem(
-      `user = "${userId}" && product = "${productId}"`
+    const existing = await pb.collection('wishlists').getFirstListItem(
+      `userId = "${userId}" && productId = "${productId}"`
     );
-    // Already exists, do nothing
-    return;
+    return existing;
   } catch {
     // Not in wishlist, add it
-    await pb.collection('wishlist').create({
-      user: userId,
-      product: productId,
+    return pb.collection('wishlists').create({
+      userId,
+      productId,
     });
   }
 }
@@ -375,10 +512,10 @@ export async function removeFromWishlist(
 ): Promise<void> {
   const pb = getPocketBaseClient();
   try {
-    const item = await pb.collection('wishlist').getFirstListItem(
-      `user = "${userId}" && product = "${productId}"`
+    const item = await pb.collection('wishlists').getFirstListItem(
+      `userId = "${userId}" && productId = "${productId}"`
     );
-    await pb.collection('wishlist').delete(item.id);
+    await pb.collection('wishlists').delete(item.id);
   } catch {
     // Not in wishlist, do nothing
   }
@@ -390,11 +527,160 @@ export async function isInWishlist(
 ): Promise<boolean> {
   const pb = getPocketBaseClient();
   try {
-    await pb.collection('wishlist').getFirstListItem(
-      `user = "${userId}" && product = "${productId}"`
+    await pb.collection('wishlists').getFirstListItem(
+      `userId = "${userId}" && productId = "${productId}"`
     );
     return true;
   } catch {
     return false;
+  }
+}
+
+// ============================================
+// Reviews
+// ============================================
+
+export async function getProductReviews(
+  productId: string,
+  options?: {
+    page?: number;
+    perPage?: number;
+    onlyApproved?: boolean;
+  }
+): Promise<ListResult<Review>> {
+  const pb = getPocketBaseClient();
+  const filter = options?.onlyApproved !== false
+    ? `productId = "${productId}" && isApproved = true`
+    : `productId = "${productId}"`;
+
+  return pb.collection('reviews').getList(
+    options?.page || 1,
+    options?.perPage || 10,
+    {
+      filter,
+      sort: '-@rowid',
+      expand: 'userId',
+    }
+  );
+}
+
+export async function getUserReviews(
+  userId: string,
+  options?: { page?: number; perPage?: number }
+): Promise<ListResult<Review>> {
+  const pb = getPocketBaseClient();
+  return pb.collection('reviews').getList(
+    options?.page || 1,
+    options?.perPage || 10,
+    {
+      filter: `userId = "${userId}"`,
+      sort: '-@rowid',
+      expand: 'productId',
+    }
+  );
+}
+
+export async function createReview(data: {
+  userId: string;
+  productId: string;
+  rating: number;
+  title: string;
+  comment: string;
+  isVerifiedPurchase?: boolean;
+}): Promise<Review> {
+  const pb = getPocketBaseClient();
+  return pb.collection('reviews').create({
+    ...data,
+    isVerifiedPurchase: data.isVerifiedPurchase || false,
+    isApproved: false, // Reviews require approval
+  });
+}
+
+export async function updateReview(
+  id: string,
+  data: Partial<Pick<Review, 'rating' | 'title' | 'comment'>>
+): Promise<Review> {
+  const pb = getPocketBaseClient();
+  return pb.collection('reviews').update(id, data);
+}
+
+export async function deleteReview(id: string): Promise<void> {
+  const pb = getPocketBaseClient();
+  await pb.collection('reviews').delete(id);
+}
+
+export async function getProductAverageRating(productId: string): Promise<{
+  average: number;
+  count: number;
+}> {
+  const pb = getPocketBaseClient();
+  const result = await pb.collection('reviews').getFullList({
+    filter: `productId = "${productId}" && isApproved = true`,
+    fields: 'rating',
+  });
+
+  if (result.length === 0) {
+    return { average: 0, count: 0 };
+  }
+
+  const sum = result.reduce((acc, review) => acc + review.rating, 0);
+  return {
+    average: sum / result.length,
+    count: result.length,
+  };
+}
+
+// ============================================
+// Settings
+// ============================================
+
+export async function getSetting(key: string): Promise<string | null> {
+  const pb = getPocketBaseClient();
+  try {
+    const setting = await pb.collection('settings').getFirstListItem(
+      `key = "${key}"`
+    );
+    return setting.value;
+  } catch {
+    return null;
+  }
+}
+
+export async function getSettings(keys?: string[]): Promise<Record<string, string>> {
+  const pb = getPocketBaseClient();
+  const filter = keys ? keys.map(k => `key = "${k}"`).join(' || ') : '';
+  const result = await pb.collection('settings').getFullList({
+    filter: filter || undefined,
+  });
+
+  return result.reduce((acc, setting) => {
+    acc[setting.key] = setting.value;
+    return acc;
+  }, {} as Record<string, string>);
+}
+
+export async function setSetting(
+  key: string,
+  value: string,
+  description?: string
+): Promise<Setting> {
+  const pb = getPocketBaseClient();
+
+  try {
+    // Try to update existing setting
+    const existing = await pb.collection('settings').getFirstListItem(
+      `key = "${key}"`
+    );
+    return pb.collection('settings').update(existing.id, {
+      value,
+      ...(description && { description }),
+    });
+  } catch {
+    // Create new setting
+    return pb.collection('settings').create({
+      key,
+      value,
+      description: description || '',
+    });
   }
 }
