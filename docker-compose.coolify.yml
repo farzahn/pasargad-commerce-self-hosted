@@ -1,0 +1,128 @@
+# Production Docker Compose for Coolify Deployment
+# Coolify's Traefik handles reverse proxy, SSL, and domain routing
+# Use docker-compose.yml for local development (includes Caddy)
+
+services:
+  # Next.js Application
+  # Domain: shop.cafemomiji.com
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL:-https://api.cafemomiji.com}
+        - NEXT_PUBLIC_SITE_URL=${PUBLIC_SITE_URL:-https://shop.cafemomiji.com}
+        - NEXT_PUBLIC_STORE_NAME=${STORE_NAME:-My Store}
+        - NEXT_PUBLIC_STORE_DESCRIPTION=${STORE_DESCRIPTION:-Your online store}
+        - NEXT_PUBLIC_ADMIN_EMAIL=${NEXT_PUBLIC_ADMIN_EMAIL:-}
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - POCKETBASE_INTERNAL_URL=http://pocketbase:8090
+      - NEXT_PUBLIC_POCKETBASE_URL=${PUBLIC_POCKETBASE_URL:-https://api.cafemomiji.com}
+      - NEXT_PUBLIC_UMAMI_URL=${PUBLIC_UMAMI_URL:-https://analytics.cafemomiji.com}
+      - NEXT_PUBLIC_PHOTON_URL=${PHOTON_URL:-https://photon.komoot.io}
+      - NEXT_PUBLIC_STORE_NAME=${STORE_NAME:-My Store}
+      - NEXT_PUBLIC_STORE_DESCRIPTION=${STORE_DESCRIPTION:-Your online store for great products}
+      - NEXT_PUBLIC_SITE_URL=${PUBLIC_SITE_URL:-https://shop.cafemomiji.com}
+      - REDIS_URL=redis://redis:6379
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+      - SMTP_FROM=${SMTP_FROM:-noreply@example.com}
+      - NEXT_PUBLIC_HCAPTCHA_SITE_KEY=${HCAPTCHA_SITE_KEY}
+      - HCAPTCHA_SECRET_KEY=${HCAPTCHA_SECRET_KEY}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
+      - NEXT_PUBLIC_ADMIN_EMAIL=${NEXT_PUBLIC_ADMIN_EMAIL:-}
+      - STORE_NAME=${STORE_NAME:-My Store}
+      - ORDER_PREFIX=${ORDER_PREFIX:-ORD}
+      - CURRENCY_SYMBOL=${CURRENCY_SYMBOL:-$}
+      - SHIPPING_FLAT_RATE=${SHIPPING_FLAT_RATE:-500}
+      - FREE_SHIPPING_THRESHOLD=${FREE_SHIPPING_THRESHOLD:-5000}
+      - PROCESSING_STATUS_NAME=${PROCESSING_STATUS_NAME:-processing}
+      - SITE_PASSWORD=${SITE_PASSWORD}
+    depends_on:
+      - pocketbase
+      - redis
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # PocketBase (Database + Auth + Storage)
+  # Domain: api.cafemomiji.com
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    expose:
+      - "8090"
+    volumes:
+      - pocketbase_data:/pb_data
+      - pocketbase_public:/pb_public
+      - ./pb_migrations:/pb_migrations
+    environment:
+      - PB_ADMIN_EMAIL=${POCKETBASE_ADMIN_EMAIL:-admin@example.com}
+    restart: unless-stopped
+    command: serve --http=0.0.0.0:8090 --dir=/pb_data --publicDir=/pb_public --migrationsDir=/pb_migrations
+    networks:
+      - app-network
+
+  # Redis (Rate Limiting & Session Caching)
+  # Internal only - no external domain
+  redis:
+    image: redis:7-alpine
+    expose:
+      - "6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    networks:
+      - app-network
+
+  # Umami Analytics
+  # Domain: analytics.cafemomiji.com
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    expose:
+      - "3000"
+    environment:
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD:-umami}@umami-db:5432/umami
+      DATABASE_TYPE: postgresql
+      APP_SECRET: ${UMAMI_APP_SECRET:-change-me-in-production}
+      DISABLE_TELEMETRY: 1
+    depends_on:
+      umami-db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  # Umami PostgreSQL Database
+  # Internal only - no external domain
+  umami-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: umami
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD:-umami}
+    volumes:
+      - umami_db_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami -d umami"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+volumes:
+  pocketbase_data:
+  pocketbase_public:
+  redis_data:
+  umami_db_data:
+
+networks:
+  app-network:
+    driver: bridge
