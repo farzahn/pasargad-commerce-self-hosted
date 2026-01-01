@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/tooltip';
 import { ProductActions } from '@/components/storefront/ProductActions';
 import { ProductCard } from '@/components/storefront/ProductCard';
-import { getProductBySlug, getProducts, getProductImageUrl } from '@/lib/pocketbase';
+import { getProductBySlug, getProducts, getProductImageUrl, escapeFilterValue } from '@/lib/pocketbase';
 import { formatCurrency } from '@/lib/utils';
 import type { Metadata } from 'next';
 import type { Product } from '@/types/pocketbase';
@@ -55,9 +55,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   try {
     product = await getProductBySlug(slug);
-    if (product) {
+    if (product && product.categoryId) {
       const result = await getProducts({
-        filter: `status = 'active' && categoryId = '${product.categoryId}' && id != '${product.id}'`,
+        filter: `status = 'active' && categoryId = "${escapeFilterValue(product.categoryId)}" && id != "${escapeFilterValue(product.id)}"`,
         perPage: 4,
       });
       relatedProducts = result.items;

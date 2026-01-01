@@ -63,7 +63,7 @@ export {
   getProductImageUrl,
   // Alias for compatibility
   getProductBySlug as getProduct,
-} from './collections';
+} from './products';
 
 // ============================================
 // Categories
@@ -75,7 +75,7 @@ export {
   getCategoryBySlug,
   getRootCategories,
   getSubcategories,
-} from './collections';
+} from './categories';
 
 // ============================================
 // Orders
@@ -90,7 +90,7 @@ export {
   // Aliases for compatibility
   getUserOrders as getOrders,
   getOrderById as getOrder,
-} from './collections';
+} from './orders';
 
 // ============================================
 // Discounts
@@ -102,7 +102,7 @@ export {
   incrementDiscountUsage,
   // Alias for compatibility
   validateDiscountCode as validateDiscount,
-} from './collections';
+} from './discounts';
 
 // ============================================
 // Messages (Contact)
@@ -115,7 +115,7 @@ export {
   archiveMessage,
   // Alias for compatibility
   createMessage as createContactMessage,
-} from './collections';
+} from './messages';
 
 // ============================================
 // Addresses
@@ -128,7 +128,7 @@ export {
   updateAddress,
   deleteAddress,
   setDefaultAddress,
-} from './collections';
+} from './addresses';
 
 // ============================================
 // Wishlists
@@ -140,7 +140,7 @@ export {
   addToWishlist,
   removeFromWishlist,
   isInWishlist,
-} from './collections';
+} from './wishlists';
 
 // ============================================
 // Reviews
@@ -153,7 +153,7 @@ export {
   updateReview,
   deleteReview,
   getProductAverageRating,
-} from './collections';
+} from './reviews';
 
 // ============================================
 // Settings
@@ -163,7 +163,7 @@ export {
   getSetting,
   getSettings,
   setSetting,
-} from './collections';
+} from './settings';
 
 // ============================================
 // Files

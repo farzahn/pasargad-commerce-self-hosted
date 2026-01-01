@@ -25,20 +25,14 @@ import {
 } from '@/components/ui/select';
 import { EmptyState } from '@/components/shared/empty-state';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
-import { useCart } from '@/hooks/useCart';
+import { useCart } from '@/hooks/use-cart';
 import { useAuthContext } from '@/components/shared/auth-provider';
-import { formatCurrency, calculateShipping } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
+import { calculateShipping } from '@/lib/config';
 import { createOrder, getUserAddresses } from '@/lib/pocketbase';
 import { useToast } from '@/hooks/use-toast';
+import { US_STATES } from '@/lib/config';
 import type { ShippingAddress, Address, OrderItem } from '@/types/pocketbase';
-
-const US_STATES = [
-  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
-  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
-  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
-  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
-];
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -60,10 +54,15 @@ export default function CheckoutPage() {
     phone: '',
   });
 
+  // All calculations in cents, convert to dollars for display
+  const shippingCents = calculateShipping(subtotal);
+  const totalCents = subtotal + shippingCents - discountAmount;
+
+  // Convert to dollars for display
   const subtotalDollars = subtotal / 100;
-  const shipping = calculateShipping(subtotalDollars);
   const discountDollars = discountAmount / 100;
-  const total = subtotalDollars + shipping - discountDollars;
+  const shipping = shippingCents / 100;
+  const total = totalCents / 100;
 
   // Load saved addresses when user is available
   useEffect(() => {
@@ -205,10 +204,10 @@ export default function CheckoutPage() {
         items: orderItems,
         shippingAddress: address,
         subtotal: subtotal,
-        shippingCost: Math.round(shipping * 100), // Convert to cents
+        shippingCost: shippingCents, // Already in cents
         discountCode: discountCode || '',
         discountAmount: discountAmount,
-        total: Math.round(total * 100), // Convert to cents
+        total: totalCents, // Already in cents
       });
 
       // Clear cart

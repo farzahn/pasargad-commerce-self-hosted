@@ -14,7 +14,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
-import { useCart } from '@/hooks/useCart';
+import { useCart } from '@/hooks/use-cart';
 import { formatCurrency } from '@/lib/utils';
 import { EmptyState } from '@/components/shared/empty-state';
 

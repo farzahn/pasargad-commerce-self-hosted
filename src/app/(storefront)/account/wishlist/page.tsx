@@ -10,7 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/shared/empty-state';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
 import { useAuthContext } from '@/components/shared/auth-provider';
-import { useCart } from '@/hooks/useCart';
+import { useCart } from '@/hooks/use-cart';
 import { useToast } from '@/hooks/use-toast';
 import { getWishlistProducts, removeFromWishlist, getProductImageUrl } from '@/lib/pocketbase';
 import { formatCurrency } from '@/lib/utils';
@@ -92,16 +92,15 @@ export default function WishlistPage() {
     const optionModifier = product.options?.[0]?.priceModifier || 0;
     const totalPrice = product.basePrice + sizeModifier + colorModifier + optionModifier;
 
-    const variants: Record<string, string> = {};
-    if (defaultSize) variants.size = defaultSize;
-    if (defaultColor) variants.color = defaultColor;
-    if (defaultOption) variants.option = defaultOption;
+    // Build variant string from defaults
+    const variantParts = [defaultSize, defaultColor, defaultOption].filter(Boolean);
+    const variant = variantParts.length > 0 ? variantParts.join(' / ') : undefined;
 
     addItem({
       productId: product.id,
       productName: product.name,
       sku: product.sku,
-      variants,
+      variant,
       quantity: 1,
       unitPrice: totalPrice,
       productImage: product.images?.[0] ? getProductImageUrl(product, 0) : undefined,

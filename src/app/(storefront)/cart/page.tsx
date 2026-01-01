@@ -17,7 +17,8 @@ import { EmptyState } from '@/components/shared/empty-state';
 import { useCart } from '@/hooks/use-cart';
 import { useAuthContext } from '@/components/shared/auth-provider';
 import { useToast } from '@/hooks/use-toast';
-import { formatCurrency, calculateShipping } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
+import { calculateShipping, getStoreConfig } from '@/lib/config';
 import { validateDiscountCode, calculateDiscount } from '@/lib/pocketbase';
 import { useState } from 'react';
 
@@ -28,10 +29,21 @@ export default function CartPage() {
   const [discountInput, setDiscountInput] = useState('');
   const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
 
-  const subtotalDollars = subtotal / 100; // Convert from cents
+  // Get config for threshold
+  const config = getStoreConfig();
+  const freeShippingThresholdDollars = config.freeShippingThreshold / 100;
+
+  // All calculations in cents, convert to dollars for display
+  const subtotalAfterDiscount = subtotal - discountAmount;
+  const shippingCents = calculateShipping(subtotalAfterDiscount);
+  const totalCents = subtotalAfterDiscount + shippingCents;
+
+  // Convert to dollars for display
+  const subtotalDollars = subtotal / 100;
   const discountDollars = discountAmount / 100;
-  const shipping = calculateShipping(subtotalDollars - discountDollars);
-  const total = subtotalDollars - discountDollars + shipping;
+  const shipping = shippingCents / 100;
+  const total = totalCents / 100;
+  const subtotalAfterDiscountDollars = subtotalAfterDiscount / 100;
 
   const handleApplyDiscount = async () => {
     if (!discountInput.trim()) return;
@@ -260,9 +272,9 @@ export default function CartPage() {
                     )}
                   </span>
                 </div>
-                {subtotalDollars - discountDollars < 50 && (
+                {freeShippingThresholdDollars > 0 && subtotalAfterDiscountDollars < freeShippingThresholdDollars && (
                   <p className="text-xs text-muted-foreground">
-                    Add {formatCurrency(50 - (subtotalDollars - discountDollars))} more for free
+                    Add {formatCurrency(freeShippingThresholdDollars - subtotalAfterDiscountDollars)} more for free
                     shipping!
                   </p>
                 )}

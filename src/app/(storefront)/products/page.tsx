@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import { ProductGrid } from '@/components/storefront/ProductGrid';
 import { ProductFilters } from '@/components/storefront/ProductFilters';
 import { Skeleton } from '@/components/ui/skeleton';
-import { getProducts, getCategories } from '@/lib/pocketbase';
+import { getProducts, getCategories, escapeFilterValue } from '@/lib/pocketbase';
 import type { Product, Category } from '@/types/pocketbase';
 
 interface ProductsPageProps {
@@ -29,11 +29,54 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
   let categories: Category[] = [];
 
   try {
-    // Build filter string
+    // Fetch categories first (needed for category slug lookup)
+    categories = await getCategories();
+
+    // Build server-side filter string with proper escaping
     const filters: string[] = ["status='active'"];
 
+    // Badge filter
     if (params.badge) {
-      filters.push(`badge='${params.badge}'`);
+      filters.push(`badge='${escapeFilterValue(params.badge)}'`);
+    }
+
+    // Search query filter (server-side text search)
+    if (params.q) {
+      const escapedQuery = escapeFilterValue(params.q);
+      filters.push(`(name ~ "${escapedQuery}" || description ~ "${escapedQuery}")`);
+    }
+
+    // Category filter (lookup category by slug first)
+    if (params.category) {
+      const category = categories.find((c) => c.slug === params.category);
+      if (category) {
+        filters.push(`categoryId = "${escapeFilterValue(category.id)}"`);
+      }
+    }
+
+    // Tags filter (using ~ operator for partial match)
+    if (params.tags) {
+      const tags = params.tags.split(',').map((t) => t.trim()).filter(Boolean);
+      if (tags.length > 0) {
+        // Use OR for tags - product matches if it has any of the specified tags
+        const tagFilters = tags.map((tag) => `tags ~ "${escapeFilterValue(tag)}"`);
+        filters.push(`(${tagFilters.join(' || ')})`);
+      }
+    }
+
+    // Price range filters
+    if (params.minPrice) {
+      const minPriceCents = Math.round(parseFloat(params.minPrice) * 100);
+      if (!isNaN(minPriceCents)) {
+        filters.push(`basePrice >= ${minPriceCents}`);
+      }
+    }
+
+    if (params.maxPrice) {
+      const maxPriceCents = Math.round(parseFloat(params.maxPrice) * 100);
+      if (!isNaN(maxPriceCents)) {
+        filters.push(`basePrice <= ${maxPriceCents}`);
+      }
     }
 
     // Determine sort order
@@ -60,41 +103,6 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
       perPage: 100,
     });
     products = result.items;
-    categories = await getCategories();
-
-    // Apply client-side filters (in production, these would be server-side)
-    if (params.q) {
-      const query = params.q.toLowerCase();
-      products = products.filter(
-        (p) =>
-          p.name.toLowerCase().includes(query) ||
-          p.description.toLowerCase().includes(query)
-      );
-    }
-
-    if (params.category) {
-      const category = categories.find((c) => c.slug === params.category);
-      if (category) {
-        products = products.filter((p) => p.categoryId === category.id);
-      }
-    }
-
-    if (params.tags) {
-      const tags = params.tags.split(',');
-      products = products.filter((p) =>
-        tags.some((tag) => p.tags.includes(tag))
-      );
-    }
-
-    if (params.minPrice) {
-      const minPriceCents = parseFloat(params.minPrice) * 100;
-      products = products.filter((p) => p.basePrice >= minPriceCents);
-    }
-
-    if (params.maxPrice) {
-      const maxPriceCents = parseFloat(params.maxPrice) * 100;
-      products = products.filter((p) => p.basePrice <= maxPriceCents);
-    }
   } catch (error) {
     console.error('Error fetching products:', error);
   }

@@ -7,20 +7,64 @@
 
 import type { StoreConfig } from '@/types/pocketbase';
 
+// ============================================
+// US States (for shipping address forms)
+// ============================================
+
+export const US_STATES = [
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+] as const;
+
+export type USState = typeof US_STATES[number];
+
+// ============================================
+// Order Configuration
+// ============================================
+
+export const ORDER_NUMBER_PREFIX = process.env.ORDER_PREFIX || 'ORD';
+
+// ============================================
+// Store Configuration (Memoized)
+// ============================================
+
+/** Cached store configuration - loaded once from environment variables */
+let cachedConfig: StoreConfig | null = null;
+
 /**
  * Get store configuration from environment variables
- * All values have sensible defaults for quick setup
+ * Configuration is cached after first access for performance.
+ * All values have sensible defaults for quick setup.
  */
 export function getStoreConfig(): StoreConfig {
-  return {
+  if (cachedConfig) {
+    return cachedConfig;
+  }
+
+  cachedConfig = {
     name: process.env.STORE_NAME || 'My Store',
     orderPrefix: process.env.ORDER_PREFIX || 'ORD',
+    currencyCode: process.env.CURRENCY_CODE || 'USD',
     currencySymbol: process.env.CURRENCY_SYMBOL || '$',
+    locale: process.env.LOCALE || 'en-US',
     shippingFlatRate: parseInt(process.env.SHIPPING_FLAT_RATE || '500', 10), // $5.00
     freeShippingThreshold: parseInt(process.env.FREE_SHIPPING_THRESHOLD || '5000', 10), // $50.00
     processingStatusName: process.env.PROCESSING_STATUS_NAME || 'processing',
     adminEmail: process.env.ADMIN_EMAIL || 'admin@example.com',
   };
+
+  return cachedConfig;
+}
+
+/**
+ * Clear the cached store configuration.
+ * Useful for testing or when environment variables change.
+ */
+export function clearConfigCache(): void {
+  cachedConfig = null;
 }
 
 /**

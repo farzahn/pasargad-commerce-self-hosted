@@ -338,15 +338,15 @@ export interface ListResult<T> {
 
 /**
  * Cart item - stores product details and selected variants (client-side only)
+ * Uses a simple variant string for flexibility and display purposes.
  */
 export interface CartItem {
   productId: string;
   productName: string;
   productImage?: string;
+  productSlug?: string;
   sku?: string;
-  /** Selected variant options as key-value pairs */
-  variants?: Record<string, string>;
-  /** @deprecated Use variants instead */
+  /** Selected variant as a display string (e.g., "Large / Blue") */
   variant?: string;
   quantity: number;
   unitPrice: number;
@@ -395,7 +395,12 @@ export interface OAuthResponse extends AuthResponse {
 export interface StoreConfig {
   name: string;
   orderPrefix: string;
+  /** ISO 4217 currency code (e.g., 'USD', 'EUR') */
+  currencyCode: string;
+  /** Currency symbol for display (e.g., '$', '€') - derived from currencyCode if not set */
   currencySymbol: string;
+  /** BCP 47 locale code (e.g., 'en-US', 'de-DE') for formatting */
+  locale: string;
   shippingFlatRate: number;
   freeShippingThreshold: number;
   processingStatusName: string;

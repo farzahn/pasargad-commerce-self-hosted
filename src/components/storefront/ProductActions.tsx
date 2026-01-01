@@ -11,8 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useCart } from '@/hooks/useCart';
-import { useWishlist } from '@/hooks/useWishlist';
+import { useCart } from '@/hooks/use-cart';
+import { useWishlist } from '@/hooks/use-wishlist';
 import { useAuthContext } from '@/components/shared/auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/utils';
