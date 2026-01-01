@@ -28,6 +28,60 @@ const ADMIN_ROUTES = ['/admin']
 const AUTH_ROUTES = ['/login']
 
 /**
+ * Type guard for validating PocketBase auth cookie structure
+ * Ensures the parsed JSON has the expected shape before accessing properties
+ */
+interface AuthCookieData {
+  token?: string
+  record?: {
+    role?: string
+    email?: string
+    isAdmin?: boolean
+  }
+  model?: {
+    role?: string
+    email?: string
+    isAdmin?: boolean
+  }
+}
+
+function isValidAuthCookieData(data: unknown): data is AuthCookieData {
+  if (typeof data !== 'object' || data === null) {
+    return false
+  }
+
+  const obj = data as Record<string, unknown>
+
+  // Token must be undefined or string
+  if (obj.token !== undefined && typeof obj.token !== 'string') {
+    return false
+  }
+
+  // Validate record/model structure if present
+  const validateUserData = (userData: unknown): boolean => {
+    if (userData === undefined || userData === null) {
+      return true
+    }
+    if (typeof userData !== 'object') {
+      return false
+    }
+    const user = userData as Record<string, unknown>
+    if (user.role !== undefined && typeof user.role !== 'string') {
+      return false
+    }
+    if (user.email !== undefined && typeof user.email !== 'string') {
+      return false
+    }
+    if (user.isAdmin !== undefined && typeof user.isAdmin !== 'boolean') {
+      return false
+    }
+    return true
+  }
+
+  return validateUserData(obj.record) && validateUserData(obj.model)
+}
+
+/**
  * Build Content Security Policy header
  *
  * CSP helps prevent XSS attacks by controlling which resources can be loaded.
@@ -82,6 +136,7 @@ function buildCspHeader(): string {
 
 /**
  * Parse PocketBase auth cookie to check authentication status
+ * Uses runtime validation to ensure cookie data has expected structure
  */
 function getAuthFromCookie(request: NextRequest): { isValid: boolean; isAdmin: boolean } {
   const pbAuth = request.cookies.get('pb_auth')
@@ -92,18 +147,34 @@ function getAuthFromCookie(request: NextRequest): { isValid: boolean; isAdmin: b
 
   try {
     // PocketBase stores auth as JSON in the cookie
-    const authData = JSON.parse(pbAuth.value)
+    const parsed: unknown = JSON.parse(pbAuth.value)
+
+    // Validate the parsed data has expected structure
+    if (!isValidAuthCookieData(parsed)) {
+      console.warn('Middleware: Invalid auth cookie structure')
+      return { isValid: false, isAdmin: false }
+    }
+
+    const authData = parsed
     const isValid = !!authData.token
 
-    // Check role or admin email
-    const userRole = authData.model?.role || authData.record?.role
-    const userEmail = authData.model?.email || authData.record?.email
-    const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+    // Check role or admin email (prefer record for new SDK, fallback to model for old)
+    const userData = authData.record ?? authData.model
+    const userRole = userData?.role
+    const userEmail = userData?.email
+    const userIsAdmin = userData?.isAdmin
 
-    const isAdmin = userRole === 'admin' || (!!adminEmail && userEmail === adminEmail)
+    // Use server-side only ADMIN_EMAIL (not exposed to client)
+    const adminEmail = process.env.ADMIN_EMAIL
+
+    const isAdmin =
+      userRole === 'admin' ||
+      userIsAdmin === true ||
+      (!!adminEmail && userEmail === adminEmail)
 
     return { isValid, isAdmin }
-  } catch {
+  } catch (error) {
+    console.warn('Middleware: Failed to parse auth cookie', error)
     return { isValid: false, isAdmin: false }
   }
 }

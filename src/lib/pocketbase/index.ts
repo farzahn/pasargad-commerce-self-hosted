@@ -14,10 +14,12 @@ export {
   createPocketBaseClient,
   createAuthenticatedClient,
   getPocketBaseUrl,
+  getAuthRecord,
   isAdmin,
   isStaff,
   isBlocked,
   getFileUrl as getFileUrlFromClient,
+  escapeFilterValue,
 } from './client';
 
 // ============================================

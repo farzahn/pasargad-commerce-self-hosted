@@ -1,12 +1,13 @@
 'use client';
 
+import { memo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Heart } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useWishlist } from '@/hooks/useWishlist';
+import { useIsInWishlist, useWishlistLoading, useWishlist } from '@/hooks/use-wishlist';
 import type { Product } from '@/types/pocketbase';
 import { formatCurrency } from '@/lib/utils';
 import { getProductImageUrl } from '@/lib/pocketbase';
@@ -15,8 +16,11 @@ interface ProductCardProps {
   product: Product;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
-  const { isInWishlist, toggleWishlist, loading } = useWishlist();
+function ProductCardComponent({ product }: ProductCardProps) {
+  // Use optimized selectors for reduced re-renders
+  const isInWishlistValue = useIsInWishlist(product.id);
+  const loading = useWishlistLoading();
+  const { toggleWishlist } = useWishlist();
   const primaryImage = product.images?.[0];
   const imageUrl = primaryImage
     ? getProductImageUrl(product, 0)
@@ -61,7 +65,7 @@ export function ProductCard({ product }: ProductCardProps) {
             variant="secondary"
             size="icon"
             className={`absolute right-2 top-2 transition-opacity ${
-              isInWishlist(product.id)
+              isInWishlistValue
                 ? 'opacity-100'
                 : 'opacity-0 group-hover:opacity-100'
             }`}
@@ -74,7 +78,7 @@ export function ProductCard({ product }: ProductCardProps) {
           >
             <Heart
               className={`h-4 w-4 ${
-                isInWishlist(product.id) ? 'fill-red-500 text-red-500' : ''
+                isInWishlistValue ? 'fill-red-500 text-red-500' : ''
               }`}
             />
             <span className="sr-only">Add to wishlist</span>
@@ -126,3 +130,13 @@ export function ProductCard({ product }: ProductCardProps) {
     </Card>
   );
 }
+
+/**
+ * Memoized ProductCard component for optimized list rendering
+ * Only re-renders when the product prop changes (by ID)
+ */
+export const ProductCard = memo(ProductCardComponent, (prevProps, nextProps) => {
+  // Only re-render if the product ID changes
+  // This avoids re-renders when parent re-renders but product hasn't changed
+  return prevProps.product.id === nextProps.product.id;
+});

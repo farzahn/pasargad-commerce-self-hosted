@@ -22,23 +22,25 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { ThemeToggle } from '@/components/shared/theme-toggle'
 import { useAuthContext } from '@/components/shared/auth-provider'
-import { useCart } from '@/hooks/useCart'
+import { useCartItemCount } from '@/hooks/use-cart'
 
+/**
+ * Navigation links - defined outside component to avoid recreation on each render
+ */
 const navLinks = [
   { href: '/products', label: 'Shop' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
-]
+] as const
 
 const storeName = process.env.NEXT_PUBLIC_STORE_NAME || 'Store'
 
 export function Header() {
   const { user, isAdmin, signIn, signOut, loading } = useAuthContext()
-  const { items } = useCart()
+  // Use optimized selector hook instead of computing from items array
+  const cartItemCount = useCartItemCount()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
-
-  const cartItemCount = items.reduce((sum, item) => sum + item.quantity, 0)
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

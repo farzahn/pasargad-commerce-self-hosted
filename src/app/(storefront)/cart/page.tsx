@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { EmptyState } from '@/components/shared/empty-state';
-import { useCart } from '@/hooks/useCart';
+import { useCart } from '@/hooks/use-cart';
 import { useAuthContext } from '@/components/shared/auth-provider';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, calculateShipping } from '@/lib/utils';
@@ -54,7 +54,8 @@ export default function CartPage() {
           variant: 'destructive',
         });
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to apply discount code:', error);
       toast({
         title: 'Error',
         description: 'Failed to apply discount code.',

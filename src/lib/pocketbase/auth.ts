@@ -5,7 +5,7 @@
  * Email/password authentication is disabled - Google sign-in only.
  */
 
-import { getPocketBaseClient } from './client';
+import { getPocketBaseClient, getAuthRecord } from './client';
 import type { User, TypedPocketBase, OAuthResponse, OAuthMeta } from '@/types/pocketbase';
 
 // ============================================
@@ -34,8 +34,9 @@ export async function signInWithGoogle(): Promise<OAuthResponse> {
     await pb.collection('users').update(authData.record.id, {
       lastLoginAt: new Date().toISOString(),
     });
-  } catch {
-    // Non-critical error, continue
+  } catch (error) {
+    // Non-critical error, log and continue
+    console.warn('Failed to update last login timestamp:', error);
   }
 
   return {
@@ -88,8 +89,7 @@ export function getCurrentUser(): User | null {
     return null;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return ((pb.authStore as any).record || pb.authStore.model) as User | null;
+  return getAuthRecord(pb);
 }
 
 /**
@@ -101,20 +101,18 @@ export function isAuthenticated(): boolean {
 }
 
 /**
- * Check if the current user has admin role or is the configured admin email
+ * Check if the current user has admin role
+ *
+ * Note: For full admin validation including email-based admin access,
+ * use the server-side /api/auth/check-admin endpoint instead.
+ * This function only checks PocketBase role/isAdmin fields.
  */
 export function isCurrentUserAdmin(): boolean {
   const user = getCurrentUser();
   if (!user) return false;
 
-  // Check role
-  if (user.role === 'admin') return true;
-
-  // Check if email matches ADMIN_EMAIL (for owner access)
-  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-  if (adminEmail && user.email === adminEmail) return true;
-
-  return false;
+  // Check role-based admin (from PocketBase)
+  return user.role === 'admin' || user.isAdmin === true;
 }
 
 /**
@@ -146,8 +144,9 @@ export async function refreshAuth(): Promise<User | null> {
   try {
     const authData = await pb.collection('users').authRefresh();
     return authData.record as User;
-  } catch {
+  } catch (error) {
     // Token refresh failed, clear auth state
+    console.warn('Token refresh failed, clearing auth state:', error);
     pb.authStore.clear();
     return null;
   }
@@ -170,9 +169,8 @@ export function onAuthStateChange(
   const pb = getPocketBaseClient();
 
   const unsubscribe = pb.authStore.onChange(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const user = (pb.authStore as any).record || pb.authStore.model;
-    callback(pb.authStore.isValid ? (user as User) : null);
+    const user = getAuthRecord(pb);
+    callback(pb.authStore.isValid ? user : null);
   });
 
   return unsubscribe;

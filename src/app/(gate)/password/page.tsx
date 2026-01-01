@@ -35,7 +35,8 @@ export default function PasswordPage() {
         const data = await response.json()
         setError(data.error || 'Invalid password')
       }
-    } catch {
+    } catch (error) {
+      console.error('Site password verification error:', error)
       setError('An error occurred. Please try again.')
     } finally {
       setLoading(false)

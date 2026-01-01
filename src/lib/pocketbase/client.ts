@@ -7,7 +7,18 @@
  */
 
 import PocketBase from 'pocketbase';
-import type { TypedPocketBase } from '@/types/pocketbase';
+import type { TypedPocketBase, User } from '@/types/pocketbase';
+
+/**
+ * Type definition for PocketBase AuthStore with SDK version compatibility
+ * PocketBase SDK moved from `model` to `record` in newer versions
+ */
+interface AuthStoreWithRecord {
+  record?: User | null;
+  model?: User | null;
+  token: string;
+  isValid: boolean;
+}
 
 // PocketBase URLs
 // Server-side: Use internal Docker network URL (POCKETBASE_INTERNAL_URL) or fallback to public URL
@@ -74,12 +85,20 @@ export function getPocketBaseUrl(): string {
   return POCKETBASE_URL;
 }
 
-// Helper to get user record from authStore (handles SDK version differences)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getAuthRecord(pb: TypedPocketBase): any {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (pb.authStore as any).record || pb.authStore.model;
+/**
+ * Get user record from authStore (handles SDK version differences)
+ * PocketBase SDK moved from `model` to `record` in newer versions
+ * This helper provides type-safe access to the auth record
+ */
+function getAuthRecord(pb: TypedPocketBase): User | null {
+  const authStore = pb.authStore as unknown as AuthStoreWithRecord;
+  return authStore.record ?? authStore.model ?? null;
 }
+
+/**
+ * Export the helper for use in other modules
+ */
+export { getAuthRecord };
 
 /**
  * Check if the current user has admin role
@@ -136,6 +155,18 @@ export function getFileUrl(
  * @deprecated Prefer using buildFileUrl from './files' instead
  */
 export const buildFileUrlFromParams = getFileUrl;
+
+/**
+ * Escape a string value for use in PocketBase filter queries.
+ * Prevents injection attacks by properly escaping special characters.
+ *
+ * @param value - The string value to escape
+ * @returns Escaped string safe for use in filter queries
+ */
+export function escapeFilterValue(value: string): string {
+  // Escape backslashes first, then double quotes
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
 
 // Default export for convenience
 export default getPocketBaseClient;

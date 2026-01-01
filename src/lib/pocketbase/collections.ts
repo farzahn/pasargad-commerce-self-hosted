@@ -5,8 +5,9 @@
  * Collections: products, categories, orders, discounts, messages, addresses, wishlists, reviews, settings
  */
 
-import { getPocketBaseClient } from './client';
+import { getPocketBaseClient, escapeFilterValue } from './client';
 import { getFileUrl } from './files';
+import { generateOrderNumber } from '@/lib/utils';
 import type {
   Product,
   Category,
@@ -61,7 +62,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
   const pb = getPocketBaseClient();
   try {
     return await pb.collection('products').getFirstListItem(
-      `slug = "${slug}"`,
+      `slug = "${escapeFilterValue(slug)}"`,
       { expand: 'categoryId' }
     );
   } catch {
@@ -92,7 +93,7 @@ export async function getProductsByCategory(
     options?.page || 1,
     options?.perPage || 20,
     {
-      filter: `status='active' && categoryId="${categoryId}"`,
+      filter: `status='active' && categoryId="${escapeFilterValue(categoryId)}"`,
       sort: options?.sort || '-@rowid',
       expand: 'categoryId',
     }
@@ -107,11 +108,12 @@ export async function searchProducts(
   }
 ): Promise<ListResult<Product>> {
   const pb = getPocketBaseClient();
+  const escapedQuery = escapeFilterValue(query);
   return pb.collection('products').getList(
     options?.page || 1,
     options?.perPage || 20,
     {
-      filter: `status='active' && (name ~ "${query}" || description ~ "${query}" || sku ~ "${query}")`,
+      filter: `status='active' && (name ~ "${escapedQuery}" || description ~ "${escapedQuery}" || sku ~ "${escapedQuery}")`,
       sort: '-@rowid',
       expand: 'categoryId',
     }
@@ -166,7 +168,7 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
   const pb = getPocketBaseClient();
   try {
     return await pb.collection('categories').getFirstListItem(
-      `slug = "${slug}"`,
+      `slug = "${escapeFilterValue(slug)}"`,
       { expand: 'parentId' }
     );
   } catch {
@@ -186,7 +188,7 @@ export async function getRootCategories(): Promise<Category[]> {
 export async function getSubcategories(parentId: string): Promise<Category[]> {
   const pb = getPocketBaseClient();
   const result = await pb.collection('categories').getFullList({
-    filter: `parentId = "${parentId}"`,
+    filter: `parentId = "${escapeFilterValue(parentId)}"`,
     sort: 'order',
   });
   return result;
@@ -205,7 +207,7 @@ export async function getUserOrders(
     options?.page || 1,
     options?.perPage || 10,
     {
-      filter: `userId = "${userId}"`,
+      filter: `userId = "${escapeFilterValue(userId)}"`,
       sort: '-@rowid',
     }
   );
@@ -224,7 +226,7 @@ export async function getOrderByNumber(orderNumber: string): Promise<Order | nul
   const pb = getPocketBaseClient();
   try {
     return await pb.collection('orders').getFirstListItem(
-      `orderNumber = "${orderNumber}"`
+      `orderNumber = "${escapeFilterValue(orderNumber)}"`
     );
   } catch {
     return null;
@@ -244,12 +246,7 @@ export async function createOrder(data: {
   total: number;
 }): Promise<Order> {
   const pb = getPocketBaseClient();
-
-  // Generate order number: ORD-YYYYMMDD-XXXX
-  const date = new Date();
-  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  const orderNumber = `ORD-${dateStr}-${random}`;
+  const orderNumber = generateOrderNumber();
 
   return pb.collection('orders').create({
     orderNumber,
@@ -312,7 +309,7 @@ export async function validateDiscountCode(
   const pb = getPocketBaseClient();
   try {
     const discount = await pb.collection('discounts').getFirstListItem(
-      `code = "${code.toUpperCase()}" && isActive = true`
+      `code = "${escapeFilterValue(code.toUpperCase())}" && isActive = true`
     );
 
     // Check if expired
@@ -407,7 +404,7 @@ export async function archiveMessage(id: string): Promise<Message> {
 export async function getUserAddresses(userId: string): Promise<Address[]> {
   const pb = getPocketBaseClient();
   const result = await pb.collection('addresses').getFullList({
-    filter: `userId = "${userId}"`,
+    filter: `userId = "${escapeFilterValue(userId)}"`,
     sort: '-isDefault,-@rowid',
   });
   return result;
@@ -471,7 +468,7 @@ export async function setDefaultAddress(
 export async function getUserWishlist(userId: string): Promise<Wishlist[]> {
   const pb = getPocketBaseClient();
   const result = await pb.collection('wishlists').getFullList({
-    filter: `userId = "${userId}"`,
+    filter: `userId = "${escapeFilterValue(userId)}"`,
     expand: 'productId',
     sort: '-@rowid',
   });
@@ -494,7 +491,7 @@ export async function addToWishlist(
   // Check if already in wishlist
   try {
     const existing = await pb.collection('wishlists').getFirstListItem(
-      `userId = "${userId}" && productId = "${productId}"`
+      `userId = "${escapeFilterValue(userId)}" && productId = "${escapeFilterValue(productId)}"`
     );
     return existing;
   } catch {
@@ -513,7 +510,7 @@ export async function removeFromWishlist(
   const pb = getPocketBaseClient();
   try {
     const item = await pb.collection('wishlists').getFirstListItem(
-      `userId = "${userId}" && productId = "${productId}"`
+      `userId = "${escapeFilterValue(userId)}" && productId = "${escapeFilterValue(productId)}"`
     );
     await pb.collection('wishlists').delete(item.id);
   } catch {
@@ -528,7 +525,7 @@ export async function isInWishlist(
   const pb = getPocketBaseClient();
   try {
     await pb.collection('wishlists').getFirstListItem(
-      `userId = "${userId}" && productId = "${productId}"`
+      `userId = "${escapeFilterValue(userId)}" && productId = "${escapeFilterValue(productId)}"`
     );
     return true;
   } catch {
@@ -549,9 +546,10 @@ export async function getProductReviews(
   }
 ): Promise<ListResult<Review>> {
   const pb = getPocketBaseClient();
+  const escapedProductId = escapeFilterValue(productId);
   const filter = options?.onlyApproved !== false
-    ? `productId = "${productId}" && isApproved = true`
-    : `productId = "${productId}"`;
+    ? `productId = "${escapedProductId}" && isApproved = true`
+    : `productId = "${escapedProductId}"`;
 
   return pb.collection('reviews').getList(
     options?.page || 1,
@@ -573,7 +571,7 @@ export async function getUserReviews(
     options?.page || 1,
     options?.perPage || 10,
     {
-      filter: `userId = "${userId}"`,
+      filter: `userId = "${escapeFilterValue(userId)}"`,
       sort: '-@rowid',
       expand: 'productId',
     }
@@ -615,7 +613,7 @@ export async function getProductAverageRating(productId: string): Promise<{
 }> {
   const pb = getPocketBaseClient();
   const result = await pb.collection('reviews').getFullList({
-    filter: `productId = "${productId}" && isApproved = true`,
+    filter: `productId = "${escapeFilterValue(productId)}" && isApproved = true`,
     fields: 'rating',
   });
 
@@ -638,7 +636,7 @@ export async function getSetting(key: string): Promise<string | null> {
   const pb = getPocketBaseClient();
   try {
     const setting = await pb.collection('settings').getFirstListItem(
-      `key = "${key}"`
+      `key = "${escapeFilterValue(key)}"`
     );
     return setting.value;
   } catch {
@@ -648,7 +646,7 @@ export async function getSetting(key: string): Promise<string | null> {
 
 export async function getSettings(keys?: string[]): Promise<Record<string, string>> {
   const pb = getPocketBaseClient();
-  const filter = keys ? keys.map(k => `key = "${k}"`).join(' || ') : '';
+  const filter = keys ? keys.map(k => `key = "${escapeFilterValue(k)}"`).join(' || ') : '';
   const result = await pb.collection('settings').getFullList({
     filter: filter || undefined,
   });
@@ -669,7 +667,7 @@ export async function setSetting(
   try {
     // Try to update existing setting
     const existing = await pb.collection('settings').getFirstListItem(
-      `key = "${key}"`
+      `key = "${escapeFilterValue(key)}"`
     );
     return pb.collection('settings').update(existing.id, {
       value,

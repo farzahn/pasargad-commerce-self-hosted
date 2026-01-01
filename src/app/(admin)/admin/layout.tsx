@@ -99,30 +99,38 @@ export default function AdminLayout({
   const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
-    // Check if user is authenticated and is an admin
+    // Check if user is authenticated and is an admin via server-side API
     const checkAuth = async () => {
       try {
         const pb = getPocketBaseClient()
-        const isValid = pb.authStore.isValid
-        const user = pb.authStore.model
 
-        if (!isValid || !user) {
+        // Quick client-side check for auth validity
+        if (!pb.authStore.isValid) {
           router.push('/')
           return
         }
 
-        // Check if user is admin (by role or admin email)
-        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-        const isAdmin = user.role === 'admin' || user.isAdmin === true || (adminEmail && user.email === adminEmail)
+        // Server-side admin validation (admin email not exposed to client)
+        const response = await fetch('/api/auth/check-admin', {
+          credentials: 'include',
+        })
+
+        if (!response.ok) {
+          router.push('/')
+          return
+        }
+
+        const { isAdmin, email } = await response.json()
 
         if (!isAdmin) {
           router.push('/')
           return
         }
 
-        setUserEmail(user.email)
+        setUserEmail(email || null)
         setIsAuthorized(true)
-      } catch {
+      } catch (error) {
+        console.error('Admin auth check failed:', error)
         router.push('/')
       } finally {
         setLoading(false)

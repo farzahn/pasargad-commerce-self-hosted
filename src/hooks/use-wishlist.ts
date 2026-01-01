@@ -82,7 +82,22 @@ const useWishlistStore = create<WishlistState>((set) => ({
  * - Provides loading and error states
  */
 export function useWishlist() {
-  const store = useWishlistStore();
+  // Extract stable action functions from store (these don't change between renders)
+  const setProductIds = useWishlistStore((state) => state.setProductIds);
+  const setProducts = useWishlistStore((state) => state.setProducts);
+  const setLoading = useWishlistStore((state) => state.setLoading);
+  const setInitialized = useWishlistStore((state) => state.setInitialized);
+  const setError = useWishlistStore((state) => state.setError);
+  const addProductId = useWishlistStore((state) => state.addProductId);
+  const removeProductId = useWishlistStore((state) => state.removeProductId);
+  const reset = useWishlistStore((state) => state.reset);
+
+  // Extract state values
+  const productIds = useWishlistStore((state) => state.productIds);
+  const products = useWishlistStore((state) => state.products);
+  const isLoading = useWishlistStore((state) => state.isLoading);
+  const isInitialized = useWishlistStore((state) => state.isInitialized);
+  const error = useWishlistStore((state) => state.error);
 
   // Initialize wishlist from PocketBase on mount
   useEffect(() => {
@@ -90,42 +105,43 @@ export function useWishlist() {
       const user = getCurrentUser();
 
       if (!user) {
-        store.reset();
+        reset();
         return;
       }
 
-      if (store.isInitialized) {
+      // Check current initialized state from store
+      if (useWishlistStore.getState().isInitialized) {
         return;
       }
 
-      store.setLoading(true);
-      store.setError(null);
+      setLoading(true);
+      setError(null);
 
       try {
-        const products = await getWishlistProducts(user.id);
-        const ids = new Set<string>(products.map((p) => p.id));
-        store.setProductIds(ids);
-        store.setProducts(products);
-        store.setInitialized(true);
+        const wishlistProducts = await getWishlistProducts(user.id);
+        const ids = new Set<string>(wishlistProducts.map((p) => p.id));
+        setProductIds(ids);
+        setProducts(wishlistProducts);
+        setInitialized(true);
       } catch (err) {
-        store.setError(err instanceof Error ? err.message : 'Failed to load wishlist');
+        setError(err instanceof Error ? err.message : 'Failed to load wishlist');
         console.error('Failed to load wishlist:', err);
       } finally {
-        store.setLoading(false);
+        setLoading(false);
       }
     };
 
     initWishlist();
-  }, []);
+  }, [reset, setLoading, setError, setProductIds, setProducts, setInitialized]);
 
   /**
    * Check if a product is in the wishlist
    */
   const isInWishlist = useCallback(
     (productId: string): boolean => {
-      return store.productIds.has(productId);
+      return productIds.has(productId);
     },
-    [store.productIds]
+    [productIds]
   );
 
   /**
@@ -137,30 +153,31 @@ export function useWishlist() {
       const user = getCurrentUser();
 
       if (!user) {
-        store.setError('Please sign in to add items to your wishlist');
+        setError('Please sign in to add items to your wishlist');
         return false;
       }
 
-      if (store.productIds.has(productId)) {
+      // Check current state directly from store to avoid stale closures
+      if (useWishlistStore.getState().productIds.has(productId)) {
         return true; // Already in wishlist
       }
 
       // Optimistic update
-      store.addProductId(productId);
-      store.setError(null);
+      addProductId(productId);
+      setError(null);
 
       try {
         await pbAddToWishlist(user.id, productId);
         return true;
       } catch (err) {
         // Rollback on failure
-        store.removeProductId(productId);
-        store.setError(err instanceof Error ? err.message : 'Failed to add to wishlist');
+        removeProductId(productId);
+        setError(err instanceof Error ? err.message : 'Failed to add to wishlist');
         console.error('Failed to add to wishlist:', err);
         return false;
       }
     },
-    [store]
+    [setError, addProductId, removeProductId]
   );
 
   /**
@@ -172,46 +189,51 @@ export function useWishlist() {
       const user = getCurrentUser();
 
       if (!user) {
-        store.setError('Please sign in to manage your wishlist');
+        setError('Please sign in to manage your wishlist');
         return false;
       }
 
-      if (!store.productIds.has(productId)) {
+      // Check current state directly from store
+      const currentIds = useWishlistStore.getState().productIds;
+      if (!currentIds.has(productId)) {
         return true; // Not in wishlist anyway
       }
 
       // Store current state for rollback
-      const previousIds = new Set<string>(store.productIds);
+      const previousIds = new Set<string>(currentIds);
 
       // Optimistic update
-      store.removeProductId(productId);
-      store.setError(null);
+      removeProductId(productId);
+      setError(null);
 
       try {
         await pbRemoveFromWishlist(user.id, productId);
         return true;
       } catch (err) {
         // Rollback on failure
-        store.setProductIds(previousIds);
-        store.setError(err instanceof Error ? err.message : 'Failed to remove from wishlist');
+        setProductIds(previousIds);
+        setError(err instanceof Error ? err.message : 'Failed to remove from wishlist');
         console.error('Failed to remove from wishlist:', err);
         return false;
       }
     },
-    [store]
+    [setError, removeProductId, setProductIds]
   );
 
   /**
    * Toggle a product's wishlist status
+   * @param productId - The product ID to toggle
+   * @param _productName - Optional product name (for API compatibility, not used)
    */
   const toggleWishlist = useCallback(
-    async (productId: string): Promise<boolean> => {
-      if (store.productIds.has(productId)) {
+    async (productId: string, _productName?: string): Promise<boolean> => {
+      // Check current state directly from store
+      if (useWishlistStore.getState().productIds.has(productId)) {
         return removeFromWishlist(productId);
       }
       return addToWishlist(productId);
     },
-    [store.productIds, addToWishlist, removeFromWishlist]
+    [addToWishlist, removeFromWishlist]
   );
 
   /**
@@ -222,42 +244,43 @@ export function useWishlist() {
     const user = getCurrentUser();
 
     if (!user) {
-      store.reset();
+      reset();
       return;
     }
 
-    store.setLoading(true);
-    store.setError(null);
+    setLoading(true);
+    setError(null);
 
     try {
-      const products = await getWishlistProducts(user.id);
-      const ids = new Set<string>(products.map((p) => p.id));
-      store.setProductIds(ids);
-      store.setProducts(products);
-      store.setInitialized(true);
+      const wishlistProducts = await getWishlistProducts(user.id);
+      const ids = new Set<string>(wishlistProducts.map((p) => p.id));
+      setProductIds(ids);
+      setProducts(wishlistProducts);
+      setInitialized(true);
     } catch (err) {
-      store.setError(err instanceof Error ? err.message : 'Failed to refresh wishlist');
+      setError(err instanceof Error ? err.message : 'Failed to refresh wishlist');
       console.error('Failed to refresh wishlist:', err);
     } finally {
-      store.setLoading(false);
+      setLoading(false);
     }
-  }, [store]);
+  }, [reset, setLoading, setError, setProductIds, setProducts, setInitialized]);
 
   /**
    * Clear wishlist state (call on logout)
    */
   const clearWishlist = useCallback(() => {
-    store.reset();
-  }, [store]);
+    reset();
+  }, [reset]);
 
   return {
     // State
-    wishlistIds: Array.from(store.productIds),
-    wishlistProducts: store.products,
-    isLoading: store.isLoading,
-    isInitialized: store.isInitialized,
-    error: store.error,
-    itemCount: store.productIds.size,
+    wishlistIds: Array.from(productIds),
+    wishlistProducts: products,
+    isLoading,
+    loading: isLoading, // Alias for API compatibility
+    isInitialized,
+    error,
+    itemCount: productIds.size,
 
     // Actions
     isInWishlist,
