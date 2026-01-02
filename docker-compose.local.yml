@@ -2,20 +2,17 @@
 # Docker Compose Configuration for Local Development
 # Customize container names by setting COMPOSE_PROJECT_NAME in .env
 
-version: '3.8'
-
 services:
-  # Caddy Reverse Proxy (handles HTTPS locally)
-  caddy:
-    image: caddy:2-alpine
-    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-caddy
-    ports:
-      - "80:80"
-      - "443:443"
+  # Cloudflare Tunnel (primary reverse proxy)
+  # Handles SSL termination, routing, and public internet access
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-tunnel
+    command: tunnel --config /etc/cloudflared/config.yml run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+      - ./cloudflared:/etc/cloudflared:ro
     depends_on:
       - app
       - pocketbase
@@ -140,25 +137,7 @@ services:
     networks:
       - app-network
 
-  # Cloudflare Tunnel (exposes local services to internet)
-  # Only enable when you need public access
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-tunnel
-    command: tunnel --no-autoupdate run
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
-    restart: unless-stopped
-    depends_on:
-      - caddy
-    networks:
-      - app-network
-    profiles:
-      - tunnel  # Only starts with: docker compose --profile tunnel up
-
 volumes:
-  caddy_data:
-  caddy_config:
   redis_data:
   umami_db_data:
 

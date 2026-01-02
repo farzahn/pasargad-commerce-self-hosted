@@ -112,11 +112,13 @@ npm run docker:dev
 This starts:
 - **Next.js App** at http://localhost:3000
 - **PocketBase** at http://localhost:8090
-- **Caddy** (reverse proxy) at https://localhost
+- **Cloudflare Tunnel** (reverse proxy - requires token for public access)
 - **Redis** (caching)
 - **Umami** (analytics)
 
 Wait for all services to be healthy (1-2 minutes on first run).
+
+> **Note**: For local development without public access, the tunnel will show errors if `CLOUDFLARE_TUNNEL_TOKEN` is not set. This is expected - your services still work at their local ports.
 
 ### Step 2: Create PocketBase Admin Account
 

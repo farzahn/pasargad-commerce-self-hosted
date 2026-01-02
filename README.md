@@ -91,22 +91,23 @@ For detailed setup instructions, see [Getting Started Guide](docs/GETTING_STARTE
 ## Architecture Overview
 
 ```
-                    Internet (Optional)
-                           │
-                  ┌────────▼────────┐
-                  │ Cloudflare Tunnel│  (Free public access)
-                  └────────┬────────┘
-                           │
-┌──────────────────────────▼──────────────────────────┐
-│                   Your Machine                       │
-├─────────────────────────────────────────────────────┤
-│                       Caddy                          │
-│            (Reverse Proxy + Auto HTTPS)              │
-├───────────┬───────────┬───────────┬─────────────────┤
-│  Next.js  │ PocketBase│   Umami   │      Redis      │
-│    App    │ (Backend) │(Analytics)│     (Cache)     │
-│   :3000   │   :8090   │   :3001   │     :6379       │
-└───────────┴───────────┴───────────┴─────────────────┘
+                         Internet
+                            │
+                   ┌────────▼────────┐
+                   │ Cloudflare Edge │  (SSL/CDN/DDoS Protection)
+                   └────────┬────────┘
+                            │
+                   ┌────────▼────────┐
+                   │ Cloudflare Tunnel│  (cloudflared)
+                   └────────┬────────┘
+                            │
+┌───────────────────────────▼───────────────────────────┐
+│                    Your Machine                        │
+├────────────┬────────────┬────────────┬───────────────┤
+│  Next.js   │ PocketBase │   Umami    │     Redis     │
+│    App     │ (Backend)  │ (Analytics)│    (Cache)    │
+│   :3000    │   :8090    │   :3001    │    :6379      │
+└────────────┴────────────┴────────────┴───────────────┘
 ```
 
 ## Tech Stack
@@ -117,7 +118,7 @@ For detailed setup instructions, see [Getting Started Guide](docs/GETTING_STARTE
 | Styling | Tailwind CSS + shadcn/ui | Utility-first CSS + accessible components |
 | State | Zustand | Client-side state management |
 | Backend/DB | PocketBase (SQLite) | Database, auth, file storage |
-| Reverse Proxy | Caddy | Auto HTTPS, routing |
+| Reverse Proxy | Cloudflare Tunnel | SSL termination, routing, DDoS protection |
 | Email | Nodemailer + SMTP | Transactional emails |
 | Analytics | Umami | Privacy-focused analytics |
 | Cache | Redis | Rate limiting, session cache |
@@ -145,9 +146,10 @@ For detailed setup instructions, see [Getting Started Guide](docs/GETTING_STARTE
 │   └── types/                 # TypeScript definitions
 ├── pb_migrations/             # PocketBase schema migrations
 ├── docs/                      # Documentation
-├── docker-compose.yml         # Production (Coolify)
+├── docker-compose.yml         # Production deployment
 ├── docker-compose.local.yml   # Local development
-└── Caddyfile                  # Reverse proxy config
+└── cloudflared/               # Cloudflare Tunnel config
+    └── config.yml             # Ingress routing rules
 ```
 
 ## Scripts
@@ -199,7 +201,7 @@ See [.env.example](.env.example) for all available options.
 | PocketBase | ~128MB | 0.2 core |
 | Redis | ~64MB | 0.1 core |
 | Umami + Postgres | ~256MB | 0.3 core |
-| Caddy | ~32MB | 0.1 core |
+| Cloudflared | ~32MB | 0.1 core |
 | **Total** | **~1GB** | **~1.2 cores** |
 
 Runs comfortably on a Raspberry Pi 4 or any modern VPS.

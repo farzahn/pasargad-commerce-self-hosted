@@ -1,8 +1,32 @@
-# Production Docker Compose for Coolify Deployment
-# Coolify's Traefik handles reverse proxy, SSL, and domain routing
-# Use docker-compose.yml for local development (includes Caddy)
+# Production Docker Compose Configuration
+# Uses Cloudflare Tunnel for reverse proxy, SSL, and domain routing
+# For Coolify deployment: Coolify's Traefik can be used instead of cloudflared
+#
+# Deployment Options:
+# 1. Cloudflare Tunnel (default): Uses cloudflared for public access
+# 2. Coolify/Traefik: Remove cloudflared service, let Coolify handle routing
 
 services:
+  # Cloudflare Tunnel (primary reverse proxy for production)
+  # Handles SSL termination at Cloudflare edge
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-ecommerce}-tunnel
+    command: tunnel --config /etc/cloudflared/config.yml run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
+    depends_on:
+      - app
+      - pocketbase
+      - umami
+    restart: unless-stopped
+    networks:
+      - app-network
+    profiles:
+      - tunnel  # Use: docker compose --profile tunnel up
+
   # Next.js Application
   # Domain: shop.cafemomiji.com
   app:

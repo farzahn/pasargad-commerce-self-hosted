@@ -1,0 +1,53 @@
+# Cloudflare Tunnel Configuration
+# This file configures how cloudflared routes traffic to internal services
+#
+# Setup Instructions:
+# 1. Create a tunnel: cloudflared tunnel create my-store
+# 2. Get the tunnel token: cloudflared tunnel token my-store
+# 3. Set CLOUDFLARE_TUNNEL_TOKEN in your .env file
+# 4. Configure DNS routes:
+#    cloudflared tunnel route dns my-store shop.yourdomain.com
+#    cloudflared tunnel route dns my-store api.yourdomain.com
+#    cloudflared tunnel route dns my-store analytics.yourdomain.com
+#
+# Note: When using token-based auth (TUNNEL_TOKEN env var), the tunnel ID
+# and credentials are embedded in the token - no credentials file needed.
+
+# Ingress rules - define how traffic is routed to internal services
+# Rules are evaluated in order; first match wins
+# IMPORTANT: Update hostnames below to match your domain!
+
+ingress:
+  # PocketBase API and Admin
+  # Matches: api.yourdomain.com
+  - hostname: api.yourdomain.com
+    service: http://pocketbase:8090
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: true
+
+  # Umami Analytics Dashboard
+  # Matches: analytics.yourdomain.com
+  - hostname: analytics.yourdomain.com
+    service: http://umami:3000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: true
+
+  # Main storefront (Next.js application)
+  # Matches: shop.yourdomain.com
+  - hostname: shop.yourdomain.com
+    service: http://app:3000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: true
+
+  # Root domain redirect to storefront
+  - hostname: yourdomain.com
+    service: http://app:3000
+    originRequest:
+      connectTimeout: 30s
+      noTLSVerify: true
+
+  # Catch-all rule (required - returns 404 for unmatched requests)
+  - service: http_status:404

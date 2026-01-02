@@ -1,12 +1,12 @@
 # Deployment Guide
 
-This guide covers deploying your self-hosted e-commerce store to production environments.
+This guide covers deploying your self-hosted e-commerce store to production environments using Cloudflare Tunnel as the primary reverse proxy.
 
 ## Table of Contents
 
 1. [Deployment Options](#deployment-options)
-2. [Local Network Deployment](#local-network-deployment)
-3. [Cloudflare Tunnel (Free)](#cloudflare-tunnel-free)
+2. [Cloudflare Tunnel Setup (Recommended)](#cloudflare-tunnel-setup-recommended)
+3. [Local Network Deployment](#local-network-deployment)
 4. [Coolify Deployment](#coolify-deployment)
 5. [VPS Deployment](#vps-deployment)
 6. [Production Checklist](#production-checklist)
@@ -19,59 +19,20 @@ This guide covers deploying your self-hosted e-commerce store to production envi
 
 | Option | Cost | Complexity | Best For |
 |--------|------|------------|----------|
-| Local Network | Free | Low | Home/office use |
-| Cloudflare Tunnel | Free | Medium | Public access from home |
+| Cloudflare Tunnel | Free | Low | Public access from anywhere |
+| Local Network | Free | Low | Home/office use only |
 | Coolify | $4-20/mo VPS | Low | Self-hosted PaaS |
-| VPS (Manual) | $4-20/mo | High | Full control |
+| VPS + Tunnel | $4-20/mo | Medium | Full control + public access |
 
 ---
 
-## Local Network Deployment
+## Cloudflare Tunnel Setup (Recommended)
 
-Run the store on your local network for home or office use.
-
-### Step 1: Start Services
-
-```bash
-npm run docker:dev
-```
-
-### Step 2: Find Your Local IP
-
-```bash
-# macOS/Linux
-ifconfig | grep "inet " | grep -v 127.0.0.1
-
-# Windows
-ipconfig | findstr /i "IPv4"
-```
-
-### Step 3: Access from Other Devices
-
-Other devices on your network can access:
-- **Store**: `http://YOUR_LOCAL_IP:3000`
-- **PocketBase**: `http://YOUR_LOCAL_IP:8090`
-
-### Step 4: Configure for Local Network
-
-Update `.env`:
-
-```env
-NEXT_PUBLIC_POCKETBASE_URL=http://YOUR_LOCAL_IP:8090
-NEXT_PUBLIC_SITE_URL=http://YOUR_LOCAL_IP:3000
-```
-
-Rebuild:
-```bash
-npm run docker:down
-npm run docker:dev
-```
-
----
-
-## Cloudflare Tunnel (Free)
-
-Expose your local store to the internet for free using Cloudflare Tunnel.
+Cloudflare Tunnel is the primary reverse proxy for this project. It provides:
+- **Free SSL certificates** at Cloudflare's edge
+- **DDoS protection** included
+- **No port forwarding** required
+- **Works behind NAT/firewalls**
 
 ### Prerequisites
 
@@ -107,7 +68,7 @@ This opens a browser to authenticate with Cloudflare.
 cloudflared tunnel create my-store
 ```
 
-This creates a tunnel and outputs credentials.
+This creates a tunnel and outputs credentials. Note the tunnel ID.
 
 ### Step 4: Get Tunnel Token
 
@@ -115,11 +76,26 @@ This creates a tunnel and outputs credentials.
 cloudflared tunnel token my-store
 ```
 
-Copy the token.
+Copy the token for your `.env` file.
 
-### Step 5: Configure Environment
+### Step 5: Configure DNS Routes
 
-Update `.env`:
+Route your subdomains to the tunnel:
+
+```bash
+# Main storefront
+cloudflared tunnel route dns my-store shop.yourdomain.com
+
+# PocketBase API
+cloudflared tunnel route dns my-store api.yourdomain.com
+
+# Analytics dashboard
+cloudflared tunnel route dns my-store analytics.yourdomain.com
+```
+
+### Step 6: Update Configuration
+
+1. Update `.env`:
 
 ```env
 CLOUDFLARE_TUNNEL_TOKEN=your-tunnel-token-here
@@ -127,25 +103,81 @@ CLOUDFLARE_TUNNEL_TOKEN=your-tunnel-token-here
 # Update URLs to your domain
 NEXT_PUBLIC_POCKETBASE_URL=https://api.yourdomain.com
 NEXT_PUBLIC_SITE_URL=https://shop.yourdomain.com
+PUBLIC_UMAMI_URL=https://analytics.yourdomain.com
 ```
 
-### Step 6: Configure DNS in Cloudflare Dashboard
+2. Update `cloudflared/config.yml` with your domain:
 
-1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com)
-2. Select your domain
-3. Go to **Tunnels** section
-4. Configure routes:
-   - `shop.yourdomain.com` → `http://caddy:443`
-   - `api.yourdomain.com` → `http://pocketbase:8090`
-   - `analytics.yourdomain.com` → `http://umami:3000`
+```yaml
+ingress:
+  - hostname: api.yourdomain.com
+    service: http://pocketbase:8090
+  - hostname: analytics.yourdomain.com
+    service: http://umami:3000
+  - hostname: shop.yourdomain.com
+    service: http://app:3000
+  - hostname: yourdomain.com
+    service: http://app:3000
+  - service: http_status:404
+```
 
-### Step 7: Start with Tunnel
+### Step 7: Start Services
 
 ```bash
-npm run docker:prod
+# Local development
+npm run docker:dev
+
+# Or production
+docker compose up -d
 ```
 
-Your store is now publicly accessible!
+Your store is now publicly accessible at your domain!
+
+---
+
+## Local Network Deployment
+
+Run the store on your local network for home or office use (without public internet access).
+
+### Step 1: Start Services (without tunnel)
+
+```bash
+# Start services without cloudflared
+docker compose up app pocketbase redis umami umami-db -d
+```
+
+### Step 2: Find Your Local IP
+
+```bash
+# macOS/Linux
+ifconfig | grep "inet " | grep -v 127.0.0.1
+
+# Windows
+ipconfig | findstr /i "IPv4"
+```
+
+### Step 3: Access from Other Devices
+
+Other devices on your network can access:
+- **Store**: `http://YOUR_LOCAL_IP:3000`
+- **PocketBase**: `http://YOUR_LOCAL_IP:8090`
+
+### Step 4: Configure for Local Network
+
+Update `.env`:
+
+```env
+NEXT_PUBLIC_POCKETBASE_URL=http://YOUR_LOCAL_IP:8090
+NEXT_PUBLIC_SITE_URL=http://YOUR_LOCAL_IP:3000
+```
+
+Rebuild:
+```bash
+docker compose down
+docker compose up app pocketbase redis umami umami-db -d
+```
+
+> **Note**: For public internet access, use Cloudflare Tunnel instead.
 
 ---
 
@@ -211,7 +243,7 @@ Coolify provides:
 
 ## VPS Deployment
 
-Manual deployment to any VPS provider.
+Manual deployment to any VPS provider using Cloudflare Tunnel.
 
 ### Step 1: Provision VPS
 
@@ -253,7 +285,24 @@ git clone https://github.com/yourusername/self-hosted-ecommerce.git
 cd self-hosted-ecommerce
 ```
 
-### Step 4: Configure Environment
+### Step 4: Set Up Cloudflare Tunnel
+
+On your local machine (with cloudflared installed):
+
+```bash
+# Create tunnel
+cloudflared tunnel create my-store-vps
+
+# Get token
+cloudflared tunnel token my-store-vps
+
+# Configure DNS routes
+cloudflared tunnel route dns my-store-vps shop.yourdomain.com
+cloudflared tunnel route dns my-store-vps api.yourdomain.com
+cloudflared tunnel route dns my-store-vps analytics.yourdomain.com
+```
+
+### Step 5: Configure Environment
 
 ```bash
 cp .env.example .env
@@ -267,45 +316,31 @@ STORE_NAME=My Store
 NEXT_PUBLIC_POCKETBASE_URL=https://api.yourdomain.com
 NEXT_PUBLIC_SITE_URL=https://shop.yourdomain.com
 NEXT_PUBLIC_ADMIN_EMAIL=admin@example.com
-
-# Use docker-compose.local.yml which includes Caddy
+CLOUDFLARE_TUNNEL_TOKEN=your-tunnel-token-here
 ```
 
-### Step 5: Configure DNS
+### Step 6: Update Cloudflare Tunnel Config
 
-Point your domain to your VPS IP:
+Edit `cloudflared/config.yml` with your domains:
 
-| Type | Name | Value |
-|------|------|-------|
-| A | shop | YOUR_VPS_IP |
-| A | api | YOUR_VPS_IP |
-| A | analytics | YOUR_VPS_IP |
-
-### Step 6: Update Caddyfile
-
-Edit `Caddyfile` with your domains:
-
-```caddy
-shop.yourdomain.com {
-    reverse_proxy app:3000
-}
-
-api.yourdomain.com {
-    reverse_proxy pocketbase:8090
-}
-
-analytics.yourdomain.com {
-    reverse_proxy umami:3000
-}
+```yaml
+ingress:
+  - hostname: api.yourdomain.com
+    service: http://pocketbase:8090
+  - hostname: analytics.yourdomain.com
+    service: http://umami:3000
+  - hostname: shop.yourdomain.com
+    service: http://app:3000
+  - service: http_status:404
 ```
 
 ### Step 7: Deploy
 
 ```bash
-docker compose -f docker-compose.local.yml up -d
+docker compose up -d
 ```
 
-Caddy automatically obtains SSL certificates!
+Cloudflare handles SSL automatically at the edge!
 
 ### Step 8: Verify
 

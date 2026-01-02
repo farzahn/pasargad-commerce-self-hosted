@@ -22,13 +22,17 @@ This document explains the system architecture, design decisions, and component 
 │                         Internet                                 │
 │                            │                                     │
 │                   ┌────────▼────────┐                           │
-│                   │ Cloudflare/CDN  │  (Optional)               │
+│                   │ Cloudflare Edge │  (SSL/CDN/DDoS Protection)│
+│                   └────────┬────────┘                           │
+│                            │                                     │
+│                   ┌────────▼────────┐                           │
+│                   │ Cloudflare Tunnel│  (cloudflared)           │
+│                   │  Ingress Routing │                          │
 │                   └────────┬────────┘                           │
 │                            │                                     │
 ├────────────────────────────▼────────────────────────────────────┤
-│                         Caddy                                    │
-│              (Reverse Proxy + Auto HTTPS)                        │
-│                            │                                     │
+│                      Your Machine                                │
+│                                                                  │
 │          ┌─────────────────┼─────────────────┐                  │
 │          │                 │                 │                   │
 │          ▼                 ▼                 ▼                   │
@@ -54,7 +58,7 @@ This document explains the system architecture, design decisions, and component 
 
 | Service | Purpose | Port |
 |---------|---------|------|
-| **Caddy** | Reverse proxy, SSL termination, routing | 80, 443 |
+| **Cloudflare Tunnel** | Reverse proxy, SSL termination, ingress routing | - |
 | **Next.js** | Frontend + API routes, SSR | 3000 |
 | **PocketBase** | Database, auth, file storage, real-time | 8090 |
 | **Redis** | Rate limiting, session cache | 6379 |
@@ -153,7 +157,7 @@ src/lib/pocketbase/         # Database access
 ```
 docker-compose.yml          # Service orchestration
 Dockerfile                  # App container
-Caddyfile                   # Reverse proxy
+cloudflared/config.yml      # Tunnel ingress routing
 pb_migrations/              # Database schema
 ```
 
@@ -162,6 +166,7 @@ pb_migrations/              # Database schema
 - Deployment
 - Database migrations
 - Networking
+- Ingress routing via Cloudflare Tunnel
 
 ---
 
