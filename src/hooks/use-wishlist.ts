@@ -124,6 +124,10 @@ export function useWishlist() {
         setProducts(wishlistProducts);
         setInitialized(true);
       } catch (err) {
+        // Ignore aborted requests (e.g., from React Strict Mode double-mounting)
+        if (err && typeof err === 'object' && 'isAbort' in err && err.isAbort) {
+          return;
+        }
         setError(err instanceof Error ? err.message : 'Failed to load wishlist');
         console.error('Failed to load wishlist:', err);
       } finally {
@@ -258,6 +262,10 @@ export function useWishlist() {
       setProducts(wishlistProducts);
       setInitialized(true);
     } catch (err) {
+      // Ignore aborted requests
+      if (err && typeof err === 'object' && 'isAbort' in err && err.isAbort) {
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Failed to refresh wishlist');
       console.error('Failed to refresh wishlist:', err);
     } finally {
