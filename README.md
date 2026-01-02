@@ -18,17 +18,77 @@ A modern, 100% self-hosted e-commerce template built with Next.js 15, PocketBase
 
 ## Features
 
-- **Product Catalog** - Flexible variants (size, color, or any custom option)
-- **Shopping Cart** - Persistent cart with localStorage (guests) or database (logged in)
-- **User Accounts** - Google OAuth authentication
-- **Order Management** - Customizable order workflow
-- **Admin Dashboard** - Products, orders, customers, discounts
-- **Invoice Generation** - PDF invoices with jsPDF
-- **Email Notifications** - Transactional emails via SMTP
-- **Analytics** - Privacy-focused tracking with Umami
-- **Dark Mode** - System-aware theme with manual toggle
+| Feature | Description |
+|---------|-------------|
+| **Product Catalog** | Flexible variants (size, color, or any custom option) |
+| **Shopping Cart** | Persistent cart with localStorage (guests) or database (logged in) |
+| **User Accounts** | Google OAuth authentication |
+| **Order Management** | Customizable order workflow with status tracking |
+| **Admin Dashboard** | Manage products, orders, customers, and discounts |
+| **Invoice Generation** | PDF invoices with jsPDF |
+| **Email Notifications** | Transactional emails via SMTP |
+| **Analytics** | Privacy-focused tracking with Umami |
+| **Dark Mode** | System-aware theme with manual toggle |
+| **Wishlist** | Save products for later |
+| **Discount Codes** | Percentage and fixed-amount discounts |
 
-## Architecture
+## Quick Start
+
+### Prerequisites
+
+- Docker & Docker Compose
+- Node.js 20+ (for local development without Docker)
+- Google OAuth credentials (for customer login)
+
+### 1. Clone and Configure
+
+```bash
+git clone https://github.com/yourusername/self-hosted-ecommerce.git
+cd self-hosted-ecommerce
+
+# Copy environment template
+cp .env.example .env
+```
+
+### 2. Edit Environment Variables
+
+Open `.env` and set your store details:
+
+```env
+STORE_NAME=My Awesome Store
+NEXT_PUBLIC_ADMIN_EMAIL=you@gmail.com
+```
+
+### 3. Start Services
+
+```bash
+# Start all services with Docker
+npm run docker:dev
+
+# Or for development without Docker:
+npm install
+npm run dev
+```
+
+### 4. Initial Setup
+
+1. Open **http://localhost:8090/_/** to create a PocketBase admin account
+2. Configure Google OAuth in PocketBase: Settings → Auth providers → Google
+3. Visit **http://localhost:3000** to see your store
+
+For detailed setup instructions, see [Getting Started Guide](docs/GETTING_STARTED.md).
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Getting Started](docs/GETTING_STARTED.md) | First-time setup guide with step-by-step instructions |
+| [Development Guide](docs/DEVELOPMENT.md) | Code structure, conventions, and development workflow |
+| [Deployment Guide](docs/DEPLOYMENT.md) | Production deployment options (Docker, Coolify, VPS) |
+| [API Reference](docs/API.md) | API routes, PocketBase integration, and data models |
+| [Architecture](docs/ARCHITECTURE.md) | System design, component structure, and decisions |
+
+## Architecture Overview
 
 ```
                     Internet (Optional)
@@ -49,205 +109,56 @@ A modern, 100% self-hosted e-commerce template built with Next.js 15, PocketBase
 └───────────┴───────────┴───────────┴─────────────────┘
 ```
 
-## Quick Start
+## Tech Stack
 
-### Prerequisites
-
-- Docker & Docker Compose
-- Node.js 20+ (for local development)
-- Free Cloudflare account (optional, for public access)
-
-### 1. Clone and Configure
-
-```bash
-git clone https://github.com/farzahn/pasargad-commerce-self-hosted.git
-cd pasargad-commerce-self-hosted
-
-# Copy and edit environment variables
-cp .env.example .env
-```
-
-### 2. Customize Your Store
-
-Edit `.env` with your store details:
-
-```env
-# Your store name
-STORE_NAME=My Awesome Store
-
-# Order number prefix (e.g., ORD-20250127-0001)
-ORDER_PREFIX=ORD
-
-# Admin email
-ADMIN_EMAIL=you@example.com
-
-# SMTP for emails
-SMTP_HOST=smtp.gmail.com
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-```
-
-### 3. Start Services
-
-```bash
-# Development (local only)
-npm run docker:dev
-
-# With public access via Cloudflare Tunnel
-npm run docker:prod
-```
-
-### 4. Access Your Store
-
-- **App**: https://localhost
-- **PocketBase Admin**: https://api.localhost/_/
-- **Umami Analytics**: https://analytics.localhost
-
-### 5. First-Run Setup (Required)
-
-On first launch, you need to configure PocketBase and Google OAuth:
-
-#### Step 1: Create PocketBase Admin Account
-
-1. Open **https://api.localhost/_/** (or http://localhost:8090/_/)
-2. You'll see the "Create Admin Account" form
-3. Enter your email and a secure password
-4. Click "Create and Login"
-
-> **Note:** The database schema (collections) is automatically created from the included migrations.
-
-#### Step 2: Configure Google OAuth
-
-Google OAuth is the only authentication method for customers. To enable it:
-
-1. **Create Google OAuth Credentials:**
-   - Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-   - Create a new project (or select existing)
-   - Go to "APIs & Services" → "Credentials"
-   - Click "Create Credentials" → "OAuth client ID"
-   - Select "Web application"
-   - Add authorized redirect URI: `https://api.localhost/api/oauth2-redirect` (or your production domain)
-   - Copy the **Client ID** and **Client Secret**
-
-2. **Configure in PocketBase:**
-   - Open PocketBase Admin: https://api.localhost/_/
-   - Go to **Settings** → **Auth providers**
-   - Find **Google** and click the toggle to enable
-   - Paste your **Client ID** and **Client Secret**
-   - Click "Save changes"
-
-3. **Test Login:**
-   - Visit your store at https://localhost
-   - Click "Sign In" and verify Google OAuth works
-
-#### Step 3: Set Admin Access (Optional)
-
-To grant yourself admin dashboard access:
-
-1. Edit `.env` and set `NEXT_PUBLIC_ADMIN_EMAIL` to your Google account email
-2. Restart the app: `npm run docker:down && npm run docker:dev`
-3. Log in with Google - you'll now see the Admin link in the header
-
-## Customization Guide
-
-### Product Variants
-
-The template supports flexible product variants. By default, products have:
-
-- **Sizes** - e.g., Small, Medium, Large
-- **Colors** - e.g., Red, Blue, Green
-- **Options** - Generic field for any other variant (material, style, etc.)
-
-To customize variants, modify `src/types/pocketbase.ts` and update the PocketBase collection schema.
-
-### Order Workflow
-
-Default order flow:
-```
-Pending Review → Invoice Sent → Payment Received → Processing → Shipped → Delivered
-```
-
-The "Processing" status name is customizable via `PROCESSING_STATUS_NAME`:
-- `printing` - for 3D printed products
-- `preparing` - for made-to-order items
-- `manufacturing` - for custom manufacturing
-- `packing` - for standard retail
-
-### Shipping
-
-Configure in `.env`:
-```env
-SHIPPING_FLAT_RATE=500          # $5.00 in cents
-FREE_SHIPPING_THRESHOLD=5000    # Free shipping at $50.00 (0 to disable)
-SHIPPING_REGION=US              # For address validation
-```
-
-### Branding
-
-1. Replace `public/logo.png` with your logo
-2. Update `STORE_NAME` in `.env`
-3. Customize colors in `tailwind.config.ts`
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| Frontend | Next.js 15 (App Router) | React framework with SSR/SSG |
+| Styling | Tailwind CSS + shadcn/ui | Utility-first CSS + accessible components |
+| State | Zustand | Client-side state management |
+| Backend/DB | PocketBase (SQLite) | Database, auth, file storage |
+| Reverse Proxy | Caddy | Auto HTTPS, routing |
+| Email | Nodemailer + SMTP | Transactional emails |
+| Analytics | Umami | Privacy-focused analytics |
+| Cache | Redis | Rate limiting, session cache |
 
 ## Project Structure
 
 ```
-├── docker-compose.yml     # Service orchestration
-├── Dockerfile             # Next.js production build
-├── Caddyfile              # Reverse proxy config
 ├── src/
-│   ├── app/               # Next.js App Router pages
-│   ├── components/        # React components
-│   ├── lib/
-│   │   ├── pocketbase/    # PocketBase client & helpers
-│   │   ├── config.ts      # Store configuration
-│   │   ├── email/         # Email templates
-│   │   └── pdf/           # Invoice generation
-│   ├── hooks/             # Custom React hooks
-│   └── types/             # TypeScript definitions
-├── pb_migrations/         # PocketBase database schema (auto-applied)
-├── pb_data/               # PocketBase SQLite + files (gitignored)
-└── scripts/
-    ├── backup.sh          # Automated backup script
-    ├── setup-collections.js  # Manual collection setup (optional)
-    └── seed-products.js   # Sample product data (optional)
+│   ├── app/                    # Next.js App Router
+│   │   ├── (admin)/           # Admin dashboard pages
+│   │   ├── (auth)/            # Login/auth pages
+│   │   ├── (storefront)/      # Customer-facing pages
+│   │   └── api/               # API routes
+│   ├── components/
+│   │   ├── shared/            # Reusable components
+│   │   ├── storefront/        # Storefront-specific
+│   │   └── ui/                # shadcn/ui components
+│   ├── hooks/                 # Custom React hooks
+│   ├── lib/                   # Utilities and helpers
+│   │   ├── pocketbase/        # PocketBase client & queries
+│   │   ├── config.ts          # Store configuration
+│   │   ├── constants.ts       # App constants
+│   │   ├── env.ts             # Environment validation
+│   │   └── logger.ts          # Structured logging
+│   └── types/                 # TypeScript definitions
+├── pb_migrations/             # PocketBase schema migrations
+├── docs/                      # Documentation
+├── docker-compose.yml         # Production (Coolify)
+├── docker-compose.local.yml   # Local development
+└── Caddyfile                  # Reverse proxy config
 ```
-
-## Environment Variables
-
-### Required for Basic Operation
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `STORE_NAME` | Your store name | My Store |
-| `NEXT_PUBLIC_ADMIN_EMAIL` | Email that gets admin access | you@gmail.com |
-
-### Required for Email Notifications
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `SMTP_HOST` | SMTP server | smtp.gmail.com |
-| `SMTP_USER` | SMTP username | you@gmail.com |
-| `SMTP_PASS` | SMTP password/app password | your-app-password |
-
-### Optional
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `ORDER_PREFIX` | Order number prefix | ORD |
-| `CURRENCY_SYMBOL` | Currency symbol | $ |
-| `SHIPPING_FLAT_RATE` | Flat rate in cents | 500 |
-| `FREE_SHIPPING_THRESHOLD` | Free shipping threshold in cents | 5000 |
-| `PROCESSING_STATUS_NAME` | Custom name for processing status | processing |
-| `SITE_PASSWORD` | Password protect entire site | (empty = disabled) |
-| `COMPOSE_PROJECT_NAME` | Docker container prefix | ecommerce |
 
 ## Scripts
 
 ```bash
 # Development
-npm run dev              # Start Next.js dev server
+npm run dev              # Start Next.js dev server (Turbopack)
 npm run build            # Build for production
 npm run lint             # Run ESLint
+npm run typecheck        # Run TypeScript compiler
+npm run test             # Run Vitest tests
 
 # Docker
 npm run docker:dev       # Start local development stack
@@ -256,48 +167,29 @@ npm run docker:down      # Stop all services
 npm run docker:logs      # View container logs
 
 # Utilities
+npm run pb:admin         # Open PocketBase admin panel
 npm run backup           # Run backup script
 ```
 
-## Backup & Recovery
+## Environment Variables
 
-### Automated Backups
+See [.env.example](.env.example) for all available options.
 
-```bash
-# Run manually
-npm run backup
+### Essential Variables
 
-# Schedule daily (crontab)
-0 2 * * * /path/to/project/scripts/backup.sh
-```
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `STORE_NAME` | Your store name | Yes |
+| `NEXT_PUBLIC_ADMIN_EMAIL` | Admin email (gets dashboard access) | Yes |
+| `NEXT_PUBLIC_POCKETBASE_URL` | PocketBase API URL | Yes |
 
-Backups include:
-- PocketBase SQLite database
-- Uploaded product images
-- Umami analytics database
+### Email Configuration
 
-### Restore
-
-```bash
-tar -xzf backups/backup_YYYYMMDD.tar.gz -C ./restore
-cp -r restore/pb_data/* ./pb_data/
-```
-
-## Public Access with Cloudflare Tunnel
-
-To expose your local store to the internet (free):
-
-1. Create a [Cloudflare account](https://dash.cloudflare.com)
-2. Install cloudflared: `brew install cloudflare/cloudflare/cloudflared`
-3. Create tunnel:
-   ```bash
-   cloudflared tunnel login
-   cloudflared tunnel create my-store
-   cloudflared tunnel token my-store
-   # Copy token to .env CLOUDFLARE_TUNNEL_TOKEN
-   ```
-4. Configure routes in Cloudflare Dashboard
-5. Start with: `npm run docker:prod`
+| Variable | Description |
+|----------|-------------|
+| `SMTP_HOST` | SMTP server (e.g., smtp.gmail.com) |
+| `SMTP_USER` | SMTP username |
+| `SMTP_PASS` | SMTP password/app password |
 
 ## Resource Requirements
 
@@ -310,25 +202,17 @@ To expose your local store to the internet (free):
 | Caddy | ~32MB | 0.1 core |
 | **Total** | **~1GB** | **~1.2 cores** |
 
-Runs comfortably on any modern laptop or Raspberry Pi 4.
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| Frontend | Next.js 15 (App Router) |
-| Styling | Tailwind CSS + shadcn/ui |
-| State | Zustand |
-| Backend/DB | PocketBase (SQLite) |
-| Auth | PocketBase OAuth2 |
-| Reverse Proxy | Caddy |
-| Email | Nodemailer + SMTP |
-| Analytics | Umami |
-| Cache | Redis |
+Runs comfortably on a Raspberry Pi 4 or any modern VPS.
 
 ## Contributing
 
-Contributions welcome! Please read the contributing guidelines first.
+Contributions welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
@@ -336,4 +220,4 @@ MIT License - Use freely for personal or commercial projects.
 
 ---
 
-**Built with ❤️ for makers, small businesses, and anyone who values ownership.**
+**Built with care for makers, small businesses, and anyone who values ownership.**
