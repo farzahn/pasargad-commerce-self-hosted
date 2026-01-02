@@ -184,6 +184,38 @@ export {
 } from './files';
 
 // ============================================
+// Query Builder
+// ============================================
+
+export {
+  QueryBuilder,
+  createQuery,
+  buildFilter,
+  buildSearchFilter,
+  buildInFilter,
+  Filters,
+} from './query-builder';
+
+// ============================================
+// Error Handling
+// ============================================
+
+export {
+  PocketBaseError,
+  ErrorCode,
+  parsePocketBaseError,
+  withPocketBaseError,
+  getOrNull,
+  getOrThrow,
+  isErrorCode,
+  getUserFriendlyMessage,
+  ok,
+  err,
+  type Result,
+  type ErrorCodeType,
+} from './errors';
+
+// ============================================
 // Re-export types
 // ============================================
 

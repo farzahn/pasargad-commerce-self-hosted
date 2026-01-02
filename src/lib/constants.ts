@@ -1,9 +1,47 @@
 /**
  * Site Configuration Constants
  *
+ * Centralized constants for the application.
  * These values can be customized via environment variables.
  * Defaults are provided for quick setup.
  */
+
+// ============================================
+// Application Limits
+// ============================================
+
+export const LIMITS = {
+  /** Maximum file size for image uploads (5MB) */
+  MAX_IMAGE_SIZE_BYTES: 5 * 1024 * 1024,
+  /** Maximum number of images per product */
+  MAX_IMAGES_PER_PRODUCT: 5,
+  /** Default page size for admin list views */
+  ADMIN_DEFAULT_PAGE_SIZE: 25,
+  /** Maximum page size for admin list views */
+  ADMIN_MAX_PAGE_SIZE: 100,
+  /** Default page size for storefront list views */
+  STOREFRONT_PAGE_SIZE: 20,
+  /** Maximum products to show in featured section */
+  MAX_FEATURED_PRODUCTS: 8,
+  /** Maximum saved addresses per user */
+  MAX_ADDRESSES_PER_USER: 10,
+} as const;
+
+// ============================================
+// File Upload Configuration
+// ============================================
+
+export const ALLOWED_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+] as const;
+
+export type AllowedImageType = (typeof ALLOWED_IMAGE_TYPES)[number];
+
+// ============================================
+// Site Configuration
+// ============================================
 
 export const SITE_CONFIG = {
   name: process.env.NEXT_PUBLIC_STORE_NAME || 'My Store',
@@ -76,3 +114,36 @@ export const ORDER_STATUSES = {
 } as const;
 
 export type OrderStatusKey = keyof typeof ORDER_STATUSES;
+
+/**
+ * Get order status configuration by key
+ */
+export function getOrderStatusConfig(status: string): {
+  label: string;
+  color: string;
+  description: string;
+} {
+  const config = ORDER_STATUSES[status as OrderStatusKey];
+  if (config) {
+    return config;
+  }
+  // Fallback for unknown statuses
+  return {
+    label: status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+    color: '#6B7280',
+    description: 'Unknown status',
+  };
+}
+
+// ============================================
+// Validation Patterns
+// ============================================
+
+export const VALIDATION_PATTERNS = {
+  /** US ZIP code pattern (5 digits or 5+4 format) */
+  US_ZIP_CODE: /^\d{5}(-\d{4})?$/,
+  /** Basic email pattern */
+  EMAIL: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  /** Phone number (flexible format) */
+  PHONE: /^[\d\s\-+()]{7,20}$/,
+} as const;

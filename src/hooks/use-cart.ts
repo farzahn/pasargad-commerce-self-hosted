@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { calculateCartSubtotal, calculateCartItemCount } from '@/lib/utils';
@@ -137,27 +138,35 @@ export const useCartStore = create<CartState>()(
 
 /**
  * Hook for accessing cart state and actions
- * Provides computed subtotal and itemCount as reactive values
+ * Uses useMemo to prevent unnecessary recalculations of computed values
  */
 export function useCart() {
-  const store = useCartStore();
+  const items = useCartStore((state) => state.items);
+  const discountCode = useCartStore((state) => state.discountCode);
+  const discountAmount = useCartStore((state) => state.discountAmount);
+  const addItem = useCartStore((state) => state.addItem);
+  const removeItem = useCartStore((state) => state.removeItem);
+  const updateQuantity = useCartStore((state) => state.updateQuantity);
+  const clearCart = useCartStore((state) => state.clearCart);
+  const applyDiscount = useCartStore((state) => state.applyDiscount);
+  const removeDiscount = useCartStore((state) => state.removeDiscount);
 
-  // Compute values reactively using centralized calculation functions
-  const subtotal = calculateCartSubtotal(store.items);
-  const itemCount = calculateCartItemCount(store.items);
+  // Memoize computed values to prevent recalculation on every render
+  const subtotal = useMemo(() => calculateCartSubtotal(items), [items]);
+  const itemCount = useMemo(() => calculateCartItemCount(items), [items]);
 
   return {
-    items: store.items,
-    discountCode: store.discountCode,
-    discountAmount: store.discountAmount,
+    items,
+    discountCode,
+    discountAmount,
     subtotal,
     itemCount,
-    addItem: store.addItem,
-    removeItem: store.removeItem,
-    updateQuantity: store.updateQuantity,
-    clearCart: store.clearCart,
-    applyDiscount: store.applyDiscount,
-    removeDiscount: store.removeDiscount,
+    addItem,
+    removeItem,
+    updateQuantity,
+    clearCart,
+    applyDiscount,
+    removeDiscount,
   };
 }
 

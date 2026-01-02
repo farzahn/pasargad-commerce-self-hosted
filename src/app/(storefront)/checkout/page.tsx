@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ChevronLeft, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import {
   Card,
@@ -23,15 +21,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { EmptyState } from '@/components/shared/empty-state';
 import { LoadingSpinner } from '@/components/shared/loading-spinner';
+import { AddressForm, addressSchema, type AddressFormData } from '@/components/shared/address-form';
 import { useCart } from '@/hooks/use-cart';
 import { useAuthContext } from '@/components/shared/auth-provider';
 import { formatCurrency } from '@/lib/utils';
-import { calculateShipping } from '@/lib/config';
+import { calculateShipping, US_STATES } from '@/lib/config';
 import { createOrder, getUserAddresses } from '@/lib/pocketbase';
 import { useToast } from '@/hooks/use-toast';
-import { US_STATES } from '@/lib/config';
+import { loggers } from '@/lib/logger';
 import type { ShippingAddress, Address, OrderItem } from '@/types/pocketbase';
 
 export default function CheckoutPage() {
@@ -157,28 +158,18 @@ export default function CheckoutPage() {
 
     if (!user) return;
 
-    // Validate address
-    if (
-      !address.name ||
-      !address.street ||
-      !address.city ||
-      !address.state ||
-      !address.zip
-    ) {
+    // Validate address using Zod schema
+    const validationResult = addressSchema.safeParse(address);
+    if (!validationResult.success) {
+      const firstError = validationResult.error.errors[0];
       toast({
-        title: 'Missing information',
-        description: 'Please fill in all required fields.',
+        title: 'Invalid address',
+        description: firstError?.message || 'Please check your address details.',
         variant: 'destructive',
       });
-      return;
-    }
-
-    // Validate ZIP code (US only)
-    if (!/^\d{5}(-\d{4})?$/.test(address.zip)) {
-      toast({
-        title: 'Invalid ZIP code',
-        description: 'Please enter a valid US ZIP code.',
-        variant: 'destructive',
+      loggers.orders.debug('Address validation failed', {
+        errors: validationResult.error.errors,
+        address,
       });
       return;
     }
@@ -221,7 +212,11 @@ export default function CheckoutPage() {
         description: `Your order ${order.orderNumber} has been submitted.`,
       });
     } catch (error) {
-      console.error('Error placing order:', error);
+      loggers.orders.error('Failed to place order', error, {
+        userId: user.id,
+        itemCount: items.length,
+        total: totalCents,
+      });
       toast({
         title: 'Error',
         description: 'Failed to place order. Please try again.',

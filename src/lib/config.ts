@@ -2,10 +2,12 @@
  * Store Configuration
  *
  * Centralized configuration loaded from environment variables.
+ * Uses Zod validation for type safety.
  * Customize these values in your .env file.
  */
 
 import type { StoreConfig } from '@/types/pocketbase';
+import { getStoreConfigEnv, clearEnvCache } from './env';
 
 // ============================================
 // US States (for shipping address forms)
@@ -28,7 +30,7 @@ export type USState = typeof US_STATES[number];
 export const ORDER_NUMBER_PREFIX = process.env.ORDER_PREFIX || 'ORD';
 
 // ============================================
-// Store Configuration (Memoized)
+// Store Configuration (Memoized with Validation)
 // ============================================
 
 /** Cached store configuration - loaded once from environment variables */
@@ -36,7 +38,7 @@ let cachedConfig: StoreConfig | null = null;
 
 /**
  * Get store configuration from environment variables
- * Configuration is cached after first access for performance.
+ * Configuration is validated with Zod and cached after first access.
  * All values have sensible defaults for quick setup.
  */
 export function getStoreConfig(): StoreConfig {
@@ -44,15 +46,18 @@ export function getStoreConfig(): StoreConfig {
     return cachedConfig;
   }
 
+  // Get validated environment config
+  const envConfig = getStoreConfigEnv();
+
   cachedConfig = {
-    name: process.env.STORE_NAME || 'My Store',
-    orderPrefix: process.env.ORDER_PREFIX || 'ORD',
-    currencyCode: process.env.CURRENCY_CODE || 'USD',
-    currencySymbol: process.env.CURRENCY_SYMBOL || '$',
-    locale: process.env.LOCALE || 'en-US',
-    shippingFlatRate: parseInt(process.env.SHIPPING_FLAT_RATE || '500', 10), // $5.00
-    freeShippingThreshold: parseInt(process.env.FREE_SHIPPING_THRESHOLD || '5000', 10), // $50.00
-    processingStatusName: process.env.PROCESSING_STATUS_NAME || 'processing',
+    name: envConfig.STORE_NAME,
+    orderPrefix: envConfig.ORDER_PREFIX,
+    currencyCode: envConfig.CURRENCY_CODE,
+    currencySymbol: envConfig.CURRENCY_SYMBOL,
+    locale: envConfig.LOCALE,
+    shippingFlatRate: envConfig.SHIPPING_FLAT_RATE,
+    freeShippingThreshold: envConfig.FREE_SHIPPING_THRESHOLD,
+    processingStatusName: envConfig.PROCESSING_STATUS_NAME,
     adminEmail: process.env.ADMIN_EMAIL || 'admin@example.com',
   };
 
@@ -65,6 +70,7 @@ export function getStoreConfig(): StoreConfig {
  */
 export function clearConfigCache(): void {
   cachedConfig = null;
+  clearEnvCache();
 }
 
 /**
