@@ -25,8 +25,6 @@ A modern, 100% self-hosted e-commerce template built with Next.js 15, PocketBase
 | **User Accounts** | Google OAuth authentication |
 | **Order Management** | Customizable order workflow with status tracking |
 | **Admin Dashboard** | Manage products, orders, customers, and discounts |
-| **Invoice Generation** | PDF invoices with jsPDF |
-| **Email Notifications** | Transactional emails via SMTP |
 | **Analytics** | Privacy-focused tracking with Umami |
 | **Dark Mode** | System-aware theme with manual toggle |
 | **Wishlist** | Save products for later |
